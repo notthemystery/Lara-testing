@@ -234,7 +234,7 @@ struct ToolsView: View {
                     }
                     let errorcheck = sbx_escape(proc_sbx)
                     if (errorcheck == 0) {
-                        continue
+                        return
                     } else {
                         status = "Failure!   - Steven He"
                     }
