@@ -224,6 +224,21 @@ struct ToolsView: View {
                     crashname.isEmpty ||
                     !pausedProcesses.contains(crashname)
                 )
+                Button("SBX Escape Helper") {
+                    crashname.withCString { cstr in
+                        proc = procbyname(cstr)
+                    }
+                    if (!proc) {
+                        status = "Failed to get proc"
+                    }
+                    let errorcheck = sbx_escape(proc)
+                    if (!errorcheck) {
+                        continue
+                    } else {
+                        status = "Failure!   - Steven He"
+                    }
+                }
+                .disabled(crashname.isEmpty)
 
             } header: {
                 Text("Task Manager")
