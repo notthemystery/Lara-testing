@@ -226,12 +226,12 @@ struct ToolsView: View {
                 )
                 Button("SBX Escape Helper") {
                     crashname.withCString { cstr in
-                        proc = procbyname(cstr)
+                        proc_sbx = procbyname(cstr)
                     }
                     if (!proc) {
                         status = "Failed to get proc"
                     }
-                    let errorcheck = sbx_escape(proc)
+                    let errorcheck = sbx_escape(proc_sbx)
                     if (!errorcheck) {
                         continue
                     } else {
