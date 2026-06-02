@@ -26,6 +26,7 @@ struct ToolsView: View {
     @State private var status: String?
     @State private var crashname: String = "SpringBoard"
     @State private var pausedProcesses: Set<String> = []
+    @State private var proc_sbx: UInt64 = 0
 
     private enum tokenclass: String, CaseIterable, Identifiable {
         case read = "com.apple.app-sandbox.read"
