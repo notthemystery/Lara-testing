@@ -229,7 +229,7 @@ struct ToolsView: View {
                     crashname.withCString { cstr in
                         proc_sbx = procbyname(cstr)
                     }
-                    if (!proc) {
+                    if (!proc_sbx) {
                         status = "Failed to get proc"
                     }
                     let errorcheck = sbx_escape(proc_sbx)
