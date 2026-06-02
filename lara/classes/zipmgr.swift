@@ -409,7 +409,7 @@ public func createZipArchive(fromDirectory sourceURL: URL, to destinationURL: UR
 
     let resolvedSource = sourceURL.resolvingSymlinksInPath()
 
-    guard let enumerator = fm.enumerator(at: sourceURL, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else {
+    guard let enumerator = fm.enumerator(at: resolvedSource, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else {
         error = "(zip) cannot enumerate source directory"
         mgr.logmsg("\(error)")
         throw ZipError.corruptArchive("\(error)")
@@ -450,7 +450,7 @@ public func createZipArchive(fromDirectory sourceURL: URL, to destinationURL: UR
         writeLE32(lfhSignature, to: &lfh)
         writeLE16(20, to: &lfh)
         writeLE16(0, to: &lfh)
-        writeLE16(0, to: &lfh)
+        writeLE16(compressionMethod, to: &lfh)
         writeLE16(0, to: &lfh)
         writeLE16(0, to: &lfh)
         writeLE32(entry.crc32, to: &lfh)
@@ -467,7 +467,7 @@ public func createZipArchive(fromDirectory sourceURL: URL, to destinationURL: UR
         writeLE16(20, to: &cd)
         writeLE16(20, to: &cd)
         writeLE16(0, to: &cd)
-        writeLE16(0, to: &cd)
+        writeLE16(compressionMethod, to: &cd)
         writeLE16(0, to: &cd)
         writeLE16(0, to: &cd)
         writeLE32(entry.crc32, to: &cd)

@@ -57,6 +57,8 @@ struct TweaksView: View {
                         .disabled(!mgr.sbxready)
                     NavigationLink("Custom Overwrite", destination: CustomView(mgr: mgr))
                         .disabled(!mgr.vfsready)
+                    NavigationLink("OTA Updates", destination: OTAView(mgr: mgr))
+                    NavigationLink("Screen Time", destination: ScreenTimeView(mgr: mgr))
                 }
                 
                 Section(header: HeaderLabel(text: "Broken", icon: "exclamationmark.triangle.fill")) {

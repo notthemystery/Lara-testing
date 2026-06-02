@@ -5,6 +5,7 @@
   <h1>LARA</h1>
 
   <p>A customization toolbox that utilizes DarkSword. iOS 17.0 - iOS 18.7.1 & iOS 26.0.x, excluding M5 and A19.</p>
+  <p>iOS 16.7.2 has been tested on A12 (iPhone XS Max). Other iOS 16.x versions may also work, but have not been tested yet.</p>
   <p>star this repo please :P</p>
 </div>
 
@@ -37,7 +38,8 @@
 ## Support
 | iOS Version | Support Status |
 | - | - |
-| iOS 16.x |  Not Supported ¹ |
+| iOS 16.x |  Possible ¹ |
+| iOS 16.7.2 |  Tested, needs more testing |
 | iOS 17.0 - iOS 18.7.1 | Supported |
 | iOS 18.7.2+ | Not Supported |
 | iOS 26.0 - iOS 26.0.1 | Supported |
@@ -86,6 +88,9 @@ Important Notes:
 - Grid App Switcher
 - Performance HUD
 - JIT Enabler (only for apps with `get-task-allow`)
+- OTA Update Disabler
+- Screen Time Disabler 
+  
 
 ### Coming Soon
 - App Decrypt
