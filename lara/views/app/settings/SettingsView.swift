@@ -68,7 +68,8 @@ struct SettingsView: View {
                     
                     NavigationLink("Modify Offsets", destination: OffsetManagementView())
                 }
-                Section(header: HeaderLabel(text: "Root", icon "arrow.up")) {
+                
+                Section(header: HeaderLabel(text: "Root", icon: "arrow.up")) {
                     Menu {
                         Button("Kernel") {
                         launchd = false
