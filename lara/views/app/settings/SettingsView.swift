@@ -73,12 +73,13 @@ struct SettingsView: View {
                         Button("Kernel") {
                         launchd = false
 
-                    }
+                        }
 
                         Button("Launchd") {
                         launchd = true
 
-                    }
+                        }
+                   }
                 }
                 // kernelcache
                 Section {
