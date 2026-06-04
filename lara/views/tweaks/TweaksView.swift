@@ -63,7 +63,7 @@ struct TweaksView: View {
                 
                 Section(header: HeaderLabel(text: "Broken", icon: "exclamationmark.triangle.fill")) {
                     NavigationLink("DarkBoard", destination: DarkBoardView())
-                        .disabled(true)
+                        .disabled(false)
                 }
                 
                 NavigationLink("Extra Tools", destination: ToolsView())
