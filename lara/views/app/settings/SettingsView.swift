@@ -68,7 +68,18 @@ struct SettingsView: View {
                     
                     NavigationLink("Modify Offsets", destination: OffsetManagementView())
                 }
-                
+                Section(header: HeaderLabel(text: "Root Method", icon "arrow.up")) {
+                    Menu {
+                        Button("Kernel") {
+                        launchd = false
+
+                    }
+
+                        Button("Launchd") {
+                        launchd = true
+
+                    }
+                }
                 // kernelcache
                 Section {
                     if !mgr.hasOffsets {
