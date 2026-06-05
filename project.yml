@@ -26,3 +26,11 @@ targets:
     dependencies:
       - sdk: UIKit.framework
       - sdk: Foundation.framework
+
+    postBuildScripts:
+      - name: Copy Dylibs
+        script: |
+          mkdir -p "lara.ipa/Payload/lara.app/Frameworks"
+          cp -f "lara.ipa/Payload/lara.app/libgrabkernel2.dylib" "lara.ipa/Payload/lara.app/Frameworks/"
+          cp -f "lara.ipa/Payload/lara.app/libxpf.dylib" "lara.ipa/Payload/lara.app/Frameworks/"
+
