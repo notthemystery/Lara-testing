@@ -18,53 +18,73 @@ xcodebuild \
   CODE_SIGN_IDENTITY="" \
   CODE_SIGN_ENTITLEMENTS="Config/lara.entitlements" \
   archive \
-  -archivePath "$PWD/build/lara.xcarchive" 
+  -archivePath "$PWD/build/lara.xcarchive"
 
-APP_PATH="$PWD/build/lara.xcarchive/Products/Applications/lara.app"
+# -----------------------------------
+# FIND APP FROM XCODE OUTPUT
+# -----------------------------------
+
+APP_PATH=$(find "$PWD/build/lara.xcarchive/Products/Applications" -name "*.app" -type d | head -n 1)
+
 if [ ! -d "$APP_PATH" ]; then
-  echo "Missing app at $APP_PATH"
+  echo "Missing .app in archive"
   exit 1
 fi
 
-cd $APP_PATH
+echo "Found app: $APP_PATH"
 
-mkdir Frameworks
-mv libgrabkernel2.dylib Frameworks/
-mv libxpf.dylib Frameworks/
+# -----------------------------------
+# COPY TO PROJECT ROOT (NEW BEHAVIOR)
+# -----------------------------------
 
-rm -rf "$PWD/build/Payload"
-mkdir -p "$PWD/build/Payload"
-cp -R "$APP_PATH" "$PWD/build/Payload/"
+APP_ROOT="$PWD/lara.app"
 
-plutil -replace UIFileSharingEnabled -bool YES "$PWD/build/Payload/lara.app/Info.plist"
+rm -rf "$APP_ROOT"
+cp -R "$APP_PATH" "$APP_ROOT"
 
-APP_BUNDLE=$(find "$PWD/build/Payload" -name "*.app" -type d | head -n 1)
+echo "Copied app to project root: $APP_ROOT"
 
-if [ -z "$APP_BUNDLE" ]; then
-  echo "No .app found in Payload"
-  exit 1
-fi
+# -----------------------------------
+# MODIFY INFO.PLIST
+# -----------------------------------
 
-EXEC_NAME=$(/usr/libexec/PlistBuddy -c "Print CFBundleExecutable" "$APP_BUNDLE/Info.plist")
+plutil -replace UIFileSharingEnabled -bool YES "$APP_ROOT/Info.plist"
+
+# -----------------------------------
+# DETECT EXECUTABLE NAME
+# -----------------------------------
+
+EXEC_NAME=$(/usr/libexec/PlistBuddy -c "Print CFBundleExecutable" "$APP_ROOT/Info.plist")
 
 if [ -z "$EXEC_NAME" ]; then
-  echo "Could not read CFBundleExecutable"
+  echo "Failed to read CFBundleExecutable"
   exit 1
 fi
 
-echo "Detected app: $APP_BUNDLE"
-echo "Detected executable: $EXEC_NAME"
+echo "Executable: $EXEC_NAME"
+
+# -----------------------------------
+# SIGN (ldid)
+# -----------------------------------
 
 if ! command -v ldid >/dev/null 2>&1; then
   echo "ERROR: ldid not installed. Install with: brew install ldid" >&2
   exit 1
 fi
 
-ldid -SConfig/lara.entitlements "$APP_BUNDLE/$EXEC_NAME"
+ldid -SConfig/lara.entitlements "$APP_ROOT/$EXEC_NAME"
 
-(cd "$PWD/build" && /usr/bin/zip -qry lara.ipa Payload)
+# -----------------------------------
+# BUILD IPA
+# -----------------------------------
+
+rm -rf Payload
+mkdir -p Payload
+cp -R "$APP_ROOT" Payload/
+
+(cd "$PWD" && /usr/bin/zip -qry lara.ipa Payload)
 
 echo
 echo "build successful!"
-echo "ipa at: build/lara.ipa"
+echo "ipa at: $PWD/lara.ipa"
 exit 0
