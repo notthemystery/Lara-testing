@@ -44,11 +44,6 @@ cp -R "$APP_PATH" "$APP_ROOT"
 
 echo "Copied app to project root: $APP_ROOT"
 
-cd lara.app
-mkdir Frameworks
-mv libgrabkernel2.dylib Frameworks/
-mv libxpf.dylib Frameworks/
-
 # -----------------------------------
 # MODIFY INFO.PLIST
 # -----------------------------------
@@ -78,6 +73,10 @@ if ! command -v ldid >/dev/null 2>&1; then
 fi
 
 ldid -SConfig/lara.entitlements "$APP_ROOT/$EXEC_NAME"
+cd "$APP_ROOT"
+mkdir Frameworks
+mv libgrabkernel2.dylib Frameworks/
+mv libxpf.dylib Frameworks/
 
 # -----------------------------------
 # BUILD IPA
