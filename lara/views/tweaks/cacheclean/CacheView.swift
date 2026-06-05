@@ -292,6 +292,22 @@ struct CacheView: View {
                                     Text("Delete")
                                 }
                             }
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    mgr.deleteCache(app)
+                                } label: {
+                                    Text("Cache")
+                                }
+                            }
+                            .swipeActions(edge: .leading) {
+                                Button(role: .destructive) {
+                                try? FileManager.default.removeItem(atPath: app.documentsPath)
+                                mgr.startScan()
+                            } label: {
+                                Text("Docs")
+                            }
+                            .tint(.orange)
+                            }
                         }
                     }
 
