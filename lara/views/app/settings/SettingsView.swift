@@ -70,7 +70,7 @@ struct SettingsView: View {
                 }
                 
                 Section(header: HeaderLabel(text: "Root", icon: "arrow.up")) {
-                    Menu {
+                    SwiftUI.Menu {
                         Button("Kernel") {
                         launchd = false
 
