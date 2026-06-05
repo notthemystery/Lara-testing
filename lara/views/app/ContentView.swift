@@ -27,6 +27,7 @@ struct ContentView: View {
             List {
                 AlertsSection
                 KRWSection
+                RootSection
                 RCSection
                 ActionsSection
                 DebugSection
@@ -185,6 +186,21 @@ struct ContentView: View {
         } footer: {
             if isdebugged() {
                 Text("Not available while a debugger is attached.")
+            }
+        }
+    }
+
+    private var RootSection: some View {
+        Group {
+            Section {
+                Button("Get Root Access", action: {
+                    if (launchd == true) {
+                        launchd_root()
+                    } else if (launchd == false) {
+                        get_root()
+                    }
+                })
+                .disabled(!mgr.dsready)
             }
         }
     }
