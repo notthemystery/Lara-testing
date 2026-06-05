@@ -1,3 +1,10 @@
+//
+//
+// CacheView.swift
+//
+// lara
+//
+
 import SwiftUI
 import UIKit
 import Combine
@@ -47,9 +54,10 @@ final class CleanerManager: ObservableObject {
 
     private let fm = FileManager.default
 
-    // MARK: Roots
-
     private let dataRoot = "/var/mobile/Containers/Data/Application"
+
+    // MARK: Resolver (YOU plug your BundleResolver here)
+    private let resolver = BundleResolver()
 
     // MARK: Scan
 
@@ -67,6 +75,7 @@ final class CleanerManager: ObservableObject {
             var results: [CacheApp] = []
 
             let dataContainers = (try? self.fm.contentsOfDirectory(atPath: self.dataRoot)) ?? []
+            let resolved = self.resolver.resolveAll()
 
             let total = max(dataContainers.count, 1)
             var processed = 0
@@ -95,24 +104,21 @@ final class CleanerManager: ObservableObject {
                     continue
                 }
 
-                // MARK: Bundle ID from data container
-                let bundleID = self.extractBundleID(from: dataPath) ?? uuid
-
-                let bundleInfo = resolveBundleInfo(bundleID: bundleID)
-
-                let name = bundleInfo?.name ?? bundleID
-                let icon = bundleInfo?.icon
-                let bundlePath = bundleInfo?.bundlePath
+                // MARK: Match by DATA UUID (resolver output)
+                guard let appInfo = resolved.first(where: { $0.dataUUID == uuid }) else {
+                    processed += 1
+                    continue
+                }
 
                 results.append(CacheApp(
-                    id: bundleID,
-                    name: name,
-                    bundleID: bundleID,
+                    id: uuid,
+                    name: appInfo.name,
+                    bundleID: appInfo.bundleID,
 
-                    appBundlePath: bundlePath ?? "",
+                    appBundlePath: appInfo.bundlePath,
                     dataContainerPath: dataPath,
 
-                    icon: icon,
+                    icon: appInfo.icon,
 
                     cacheSize: cacheSize,
                     tmpSize: tmpSize,
@@ -148,20 +154,6 @@ final class CleanerManager: ObservableObject {
                 self.statusText = "Completed (\(results.count) apps)"
             }
         }
-    }
-
-    // MARK: Extract bundle ID (DATA container)
-
-    private func extractBundleID(from dataPath: String) -> String? {
-
-        let app = (try? fm.contentsOfDirectory(atPath: dataPath))?
-            .first(where: { $0.hasSuffix(".app") })
-
-        guard let app else { return nil }
-
-        let plist = dataPath + "/" + app + "/Info.plist"
-
-        return NSDictionary(contentsOfFile: plist)?["CFBundleIdentifier"] as? String
     }
 
     // MARK: Delete
