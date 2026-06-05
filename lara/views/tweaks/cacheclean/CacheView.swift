@@ -7,17 +7,16 @@
 
 import SwiftUI
 import UIKit
-import Combine
 import WebKit
 
-// MARK: - Model
+// MARK: - Models
 
 struct CacheApp: Identifiable {
     let id: String
     let name: String
-    let bundleID: String
+    let bundleID: String?
 
-    let appBundlePath: String
+    let appBundlePath: String?
     let dataContainerPath: String
 
     let icon: UIImage?
@@ -31,15 +30,11 @@ struct CacheApp: Identifiable {
     let documentsPath: String
 }
 
-// MARK: - Snapshot
-
 struct StorageSnapshot: Identifiable {
     let id = UUID()
     let date = Date()
     let totalBytes: Int64
 }
-
-// MARK: - Resolver Output (FAST LOOKUP DB)
 
 struct AppRecord {
     let dataUUID: String
@@ -65,47 +60,52 @@ final class CleanerManager: ObservableObject {
     private let fm = FileManager.default
     private let dataRoot = "/var/mobile/Containers/Data/Application"
 
-    // MARK: Resolver (BUILD ONCE → DICTIONARY)
+    // Resolver (optional enrichment layer)
     private let resolver = BundleResolver()
+    private var appDB: [String: AppRecord] = [:]
 
-    private var appDB: [String: AppRecord] = [:] // dataUUID → AppRecord
-
+    // MARK: Build DB (SAFE)
     private func buildDatabase() {
         let resolved = resolver.resolveAll()
-        appDB = Dictionary(uniqueKeysWithValues: resolved.map {
-            ($0.dataUUID, AppRecord(
-                dataUUID: $0.dataUUID,
-                bundleID: $0.bundleID,
-                bundlePath: $0.bundlePath,
-                name: $0.name,
-                icon: $0.icon
-            ))
-        })
+
+        var db: [String: AppRecord] = [:]
+        for app in resolved {
+            db[app.dataUUID] = AppRecord(
+                dataUUID: app.dataUUID,
+                bundleID: app.bundleID,
+                bundlePath: app.bundlePath,
+                name: app.name,
+                icon: app.icon
+            )
+        }
+
+        self.appDB = db
     }
 
     // MARK: Scan
 
-    func startScan(minSizeMB: Int64 = 4) {
+    func startScan(minSizeMB: Int64 = 1) {
 
         guard !isScanning else { return }
 
         isScanning = true
+        apps.removeAll()
         scanProgress = 0
         totalCacheBytes = 0
         statusText = "Scanning apps..."
 
         DispatchQueue.global(qos: .userInitiated).async {
 
-            self.buildDatabase()  
+            self.buildDatabase()
+
+            let containers = (try? self.fm.contentsOfDirectory(atPath: self.dataRoot)) ?? []
+
+            let total = max(containers.count, 1)
+            var processed = 0
 
             var results: [CacheApp] = []
 
-            let dataContainers = (try? self.fm.contentsOfDirectory(atPath: self.dataRoot)) ?? []
-
-            let total = max(dataContainers.count, 1)
-            var processed = 0
-
-            for uuid in dataContainers {
+            for uuid in containers {
 
                 let dataPath = self.dataRoot + "/" + uuid
 
@@ -119,30 +119,30 @@ final class CleanerManager: ObservableObject {
 
                 let totalSize = cacheSize + tmpSize + docsSize
 
+                // Only skip extremely small containers
                 if totalSize < minSizeMB * 1024 * 1024 {
                     processed += 1
                     continue
                 }
 
-                guard let appInfo = self.appDB[uuid] else {
-                    processed += 1
-                    continue
-                }
+                // 🔥 SAFE LOOKUP (DO NOT BLOCK UI IF MISSING)
+                let appInfo = self.appDB[uuid]
+
+                let name = appInfo?.name ?? "App \(uuid.suffix(6))"
+                let bundleID = appInfo?.bundleID
+                let bundlePath = appInfo?.bundlePath
+                let icon = appInfo?.icon
 
                 results.append(CacheApp(
                     id: uuid,
-                    name: appInfo.name,
-                    bundleID: appInfo.bundleID,
-
-                    appBundlePath: appInfo.bundlePath,
+                    name: name,
+                    bundleID: bundleID,
+                    appBundlePath: bundlePath,
                     dataContainerPath: dataPath,
-
-                    icon: appInfo.icon,
-
+                    icon: icon,
                     cacheSize: cacheSize,
                     tmpSize: tmpSize,
                     documentsSize: docsSize,
-
                     cachePath: cachePath,
                     tmpPath: tmpPath,
                     documentsPath: docsPath
@@ -150,11 +150,9 @@ final class CleanerManager: ObservableObject {
 
                 processed += 1
 
-                let progress = Double(processed) / Double(total)
-
                 DispatchQueue.main.async {
-                    self.scanProgress = min(progress, 1.0)
-                    self.statusText = "Scanning... \(Int(progress * 100))%"
+                    self.scanProgress = Double(processed) / Double(total)
+                    self.statusText = "Scanning \(processed)/\(total)"
                 }
             }
 
@@ -189,7 +187,7 @@ final class CleanerManager: ObservableObject {
         }
     }
 
-    // MARK: WKWebView
+    // MARK: Web cleanup
 
     func cleanWKWebView() {
 
@@ -220,7 +218,6 @@ final class CleanerManager: ObservableObject {
     // MARK: Size
 
     private func folderSize(_ path: String) -> Int64 {
-
         guard let e = fm.enumerator(atPath: path) else { return 0 }
 
         var size: Int64 = 0
