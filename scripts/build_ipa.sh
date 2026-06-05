@@ -25,6 +25,10 @@ if [ ! -d "$APP_PATH" ]; then
   echo "Missing app at $APP_PATH"
   exit 1
 fi
+cd $APP_PATH
+mkdir Frameworks
+mv libgrabkernel2.dylib Frameworks/
+mv libxpf.dylib Frameworks/
 rm -rf "$PWD/build/Payload"
 mkdir -p "$PWD/build/Payload"
 cp -R "$APP_PATH" "$PWD/build/Payload/"
