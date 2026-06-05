@@ -69,21 +69,6 @@ struct SettingsView: View {
                     NavigationLink("Modify Offsets", destination: OffsetManagementView())
                 }
                 
-                Section(header: HeaderLabel(text: "Root", icon: "arrow.up")) {
-                    SwiftUI.Menu {
-                        Button("Kernel") {
-                        launchd = false
-
-                        }
-
-                        Button("Launchd") {
-                        launchd = true
-
-                        }
-                   } label: {
-                        Text("Root Method")
-                    }
-                }
                 // kernelcache
                 Section {
                     if !mgr.hasOffsets {
