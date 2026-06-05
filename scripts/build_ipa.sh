@@ -44,6 +44,11 @@ cp -R "$APP_PATH" "$APP_ROOT"
 
 echo "Copied app to project root: $APP_ROOT"
 
+cd lara.app
+mkdir Frameworks
+mv libgrabkernel2.dylib Frameworks/
+mv libxpf.dylib Frameworks/
+
 # -----------------------------------
 # MODIFY INFO.PLIST
 # -----------------------------------
