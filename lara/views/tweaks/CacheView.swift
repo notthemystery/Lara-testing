@@ -47,12 +47,15 @@ final class CleanerManager: ObservableObject {
 
     private let fm = FileManager.default
 
-    private let dataRoot = "/private/var/mobile/Containers/Data/Application"
-    private let bundleRoot = "/private/var/mobile/Containers/Bundle/Application"
+    // MARK: - Separate roots (IMPORTANT)
+
+    private let dataRoot = "/var/mobile/Containers/Data/Application"
+    private let bundleRoot = "/var/containers/Bundle/Application"
 
     // MARK: Scan
 
     func startScan(minSizeMB: Int64 = 4) {
+
         guard !isScanning else { return }
 
         isScanning = true
@@ -64,15 +67,8 @@ final class CleanerManager: ObservableObject {
 
             var results: [CacheApp] = []
 
-            guard let dataContainers = try? self.fm.contentsOfDirectory(atPath: self.dataRoot),
-                  let bundleMap = self.buildBundleMap()
-            else {
-                DispatchQueue.main.async {
-                    self.isScanning = false
-                    self.statusText = "No containers found"
-                }
-                return
-            }
+            let dataContainers = (try? self.fm.contentsOfDirectory(atPath: self.dataRoot)) ?? []
+            let bundleMap = self.buildBundleMap()
 
             let total = max(dataContainers.count, 1)
             var processed = 0
@@ -101,17 +97,14 @@ final class CleanerManager: ObservableObject {
                     continue
                 }
 
-                let infoPath = self.findAppInfoPlist(in: dataPath)
-                let info = NSDictionary(contentsOfFile: infoPath ?? "")
+                // MARK: Bundle lookup (NAME + ICON ONLY)
 
-                let bundleID = info?["CFBundleIdentifier"] as? String ?? uuid
-
+                let bundleID = self.extractBundleID(from: dataPath) ?? uuid
                 let bundlePath = bundleMap[bundleID]
 
                 let name: String = {
                     if let bundlePath,
                        let info = NSDictionary(contentsOfFile: bundlePath + "/Info.plist") {
-
                         return info["CFBundleDisplayName"] as? String ??
                                info["CFBundleName"] as? String ??
                                bundleID
@@ -167,39 +160,14 @@ final class CleanerManager: ObservableObject {
         }
     }
 
-    // MARK: DELETE (FIXED)
+    // MARK: - BUNDLE MAP (names + icons)
 
-    func deleteAppCache(_ app: CacheApp) {
-
-        try? fm.removeItem(atPath: app.cachePath)
-        try? fm.removeItem(atPath: app.tmpPath)
-
-        startScan()
-    }
-
-    func deleteAppAllData(_ app: CacheApp) {
-
-        try? fm.removeItem(atPath: app.cachePath)
-        try? fm.removeItem(atPath: app.tmpPath)
-        try? fm.removeItem(atPath: app.documentsPath)
-
-        startScan()
-    }
-
-    func deleteAll() {
-        for app in apps {
-            deleteAppCache(app)
-        }
-    }
-
-    // MARK: Bundle map
-
-    private func buildBundleMap() -> [String: String]? {
+    private func buildBundleMap() -> [String: String] {
 
         var map: [String: String] = [:]
 
         guard let bundles = try? fm.contentsOfDirectory(atPath: bundleRoot) else {
-            return nil
+            return map
         }
 
         for uuid in bundles {
@@ -211,8 +179,9 @@ final class CleanerManager: ObservableObject {
             for app in apps where app.hasSuffix(".app") {
 
                 let full = path + "/" + app
+                let infoPath = full + "/Info.plist"
 
-                if let info = NSDictionary(contentsOfFile: full + "/Info.plist"),
+                if let info = NSDictionary(contentsOfFile: infoPath),
                    let bundleID = info["CFBundleIdentifier"] as? String {
 
                     map[bundleID] = full
@@ -223,7 +192,35 @@ final class CleanerManager: ObservableObject {
         return map
     }
 
-    // MARK: WKWebView
+    // MARK: - Extract bundle id from data container (safe heuristic)
+
+    private func extractBundleID(from dataPath: String) -> String? {
+
+        let app = (try? fm.contentsOfDirectory(atPath: dataPath))?
+            .first(where: { $0.hasSuffix(".app") })
+
+        guard let app else { return nil }
+
+        let plist = dataPath + "/" + app + "/Info.plist"
+
+        return NSDictionary(contentsOfFile: plist)?["CFBundleIdentifier"] as? String
+    }
+
+    // MARK: - CLEANERS
+
+    func deleteCache(_ app: CacheApp) {
+        try? fm.removeItem(atPath: app.cachePath)
+        try? fm.removeItem(atPath: app.tmpPath)
+        startScan()
+    }
+
+    func deleteAll() {
+        for app in apps {
+            deleteCache(app)
+        }
+    }
+
+    // MARK: - WKWebView
 
     func cleanWKWebView() {
 
@@ -251,7 +248,7 @@ final class CleanerManager: ObservableObject {
         URLCache.shared.removeAllCachedResponses()
     }
 
-    // MARK: Icon
+    // MARK: - ICON LOADER
 
     private func loadIcon(bundlePath: String?) -> UIImage? {
 
@@ -277,14 +274,16 @@ final class CleanerManager: ObservableObject {
         return UIImage(systemName: "app")
     }
 
-    // MARK: Helpers
+    // MARK: - SIZE
 
     private func folderSize(_ path: String) -> Int64 {
+
         guard let e = fm.enumerator(atPath: path) else { return 0 }
 
         var size: Int64 = 0
 
         for case let file as String in e {
+
             let full = (path as NSString).appendingPathComponent(file)
 
             if let attrs = try? fm.attributesOfItem(atPath: full),
@@ -295,15 +294,6 @@ final class CleanerManager: ObservableObject {
 
         return size
     }
-
-    private func findAppInfoPlist(in container: String) -> String? {
-        let app = (try? fm.contentsOfDirectory(atPath: container))?
-            .first(where: { $0.hasSuffix(".app") })
-
-        guard let app else { return nil }
-
-        return container + "/" + app + "/Info.plist"
-    }
 }
 
 // MARK: - UI
@@ -313,6 +303,7 @@ struct CacheView: View {
     @StateObject var mgr = CleanerManager()
 
     var body: some View {
+
         NavigationStack {
 
             VStack {
@@ -355,18 +346,11 @@ struct CacheView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
-                            .swipeActions(edge: .trailing) {
-
+                            .swipeActions {
                                 Button(role: .destructive) {
-                                    mgr.deleteAppCache(app)
+                                    mgr.deleteCache(app)
                                 } label: {
-                                    Text("Cache")
-                                }
-
-                                Button(role: .destructive) {
-                                    mgr.deleteAppAllData(app)
-                                } label: {
-                                    Text("All")
+                                    Text("Delete")
                                 }
                             }
                         }
