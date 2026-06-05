@@ -125,7 +125,6 @@ final class CleanerManager: ObservableObject {
                     continue
                 }
 
-                // 🔥 SAFE LOOKUP (DO NOT BLOCK UI IF MISSING)
                 let appInfo = self.appDB[uuid]
 
                 let name = appInfo?.name ?? "App \(uuid.suffix(6))"
@@ -178,7 +177,6 @@ final class CleanerManager: ObservableObject {
     func deleteCache(_ app: CacheApp) {
         try? fm.removeItem(atPath: app.cachePath)
         try? fm.removeItem(atPath: app.tmpPath)
-        startScan()
     }
 
     func deleteAll() {
@@ -302,7 +300,24 @@ struct CacheView: View {
                             .swipeActions(edge: .leading) {
                                 Button(role: .destructive) {
                                 try? FileManager.default.removeItem(atPath: app.documentsPath)
-                                mgr.startScan()
+                                if let index = mgr.apps.firstIndex(where: { $0.id == app.id }) {
+                                    mgr.apps[index] = CacheApp(
+                                        id: app.id,
+                                        name: app.name,
+                                        bundleID: app.bundleID,
+                                        appBundlePath: app.appBundlePath,
+                                        dataContainerPath: app.dataContainerPath,
+                                        icon: app.icon,
+                                        cacheSize: app.cacheSize,
+                                        tmpSize: app.tmpSize,
+                                        documentsSize: 0,  
+                                        cachePath: app.cachePath,
+                                        tmpPath: app.tmpPath,
+                                        documentsPath: app.documentsPath
+
+                                    )
+                                }
+                                    
                             } label: {
                                 Text("Docs")
                             }
