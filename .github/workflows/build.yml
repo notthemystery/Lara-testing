@@ -47,7 +47,7 @@ jobs:
         with:
           name: lara-ipa
           path: |
-            build/lara.ipa
+            ./lara.ipa
             build/xcodebuild.log
 
       - name: upload release ipa
