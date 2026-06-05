@@ -6,7 +6,7 @@ options:
     iOS: 17.0
 
 targets:
-  Lara:
+  lara:
     type: application
     platform: iOS
 
@@ -19,7 +19,7 @@ targets:
         INFOPLIST_FILE: lara/Info.plist
         SWIFT_OBJC_BRIDGING_HEADER: lara/lara-Bridging-Header.h
         LIBRARY_SEARCH_PATHS: $(inherited) lara/lib/
-        OTHER_LDFLAGS: $(inherited) -lxpf -lgrabkernel2 -lmuffinstore
+        OTHER_LDFLAGS: $(inherited) -lxpf -lgrabkernel2
         SWIFT_VERSION: 5.0
         SWIFT_STRICT_CONCURRENCY: minimal
 
