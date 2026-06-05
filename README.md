@@ -90,10 +90,10 @@ Important Notes:
 - JIT Enabler (only for apps with `get-task-allow`)
 - OTA Update Disabler
 - Screen Time Disabler 
-  
+- App Decrypt
 
 ### Coming Soon
-- App Decrypt
+- Clean Cache
 
 ## Known Issues
 - wont work on M5, A19 and A19 Pro due to MTE
