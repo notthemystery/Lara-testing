@@ -80,7 +80,9 @@ struct SettingsView: View {
                         launchd = true
 
                         }
-                   }
+                   } label: {
+                        Text("Root Method")
+                    }
                 }
                 // kernelcache
                 Section {
