@@ -1,79 +1,144 @@
 //
-//  BundleResolver.swift
-//  lara
+//
+// BundleResolver.swift
+//
+// lara
 //
 
+import Foundation
 import UIKit
 
-struct BundleInfo {
-    let name: String
+// MARK: - Final Model (KEYED BY DATA UUID)
+
+struct ResolvedApp {
+    let dataUUID: String
     let bundleID: String
     let bundlePath: String
+    let name: String
     let icon: UIImage?
 }
 
-/// Same logic as DecryptView.loadApps() name/icon extraction
-func resolveBundleInfo(bundleID: String) -> BundleInfo? {
+// MARK: - Resolver
 
-    let bundleFolder = "/private/var/containers/Bundle/Application"
-    let fm = FileManager.default
+final class BundleResolver {
 
-    guard let bundles = try? fm.contentsOfDirectory(atPath: bundleFolder) else {
-        return nil
-    }
+    private let fm = FileManager.default
 
-    for bundle in bundles {
+    private let bundleRoot = "/var/containers/Bundle/Application"
+    private let dataRoot = "/var/mobile/Containers/Data/Application"
 
-        let appPath = bundleFolder + "/" + bundle
+    // MARK: Public
 
-        guard let contents = try? fm.contentsOfDirectory(atPath: appPath) else {
-            continue
+    func resolveAll() -> [ResolvedApp] {
+
+        let bundleMap = buildBundleMap()   // identifier → bundlePath
+        var results: [ResolvedApp] = []
+
+        guard let dataContainers = try? fm.contentsOfDirectory(atPath: dataRoot) else {
+            return []
         }
 
-        for item in contents where item.hasSuffix(".app") {
+        for dataUUID in dataContainers {
 
-            let fullAppPath = appPath + "/" + item
-            let infoPath = fullAppPath + "/Info.plist"
+            let dataPath = dataRoot + "/" + dataUUID
+            let metaPath = dataPath + "/.com.apple.mobile_container_manager.metadata.plist"
 
-            guard let info = NSDictionary(contentsOfFile: infoPath),
-                  let currentBundleID = info["CFBundleIdentifier"] as? String,
-                  currentBundleID == bundleID else {
+            guard
+                let meta = NSDictionary(contentsOfFile: metaPath),
+                let bundleID = meta["MCMMetadataIdentifier"] as? String
+            else { continue }
+
+            guard let bundlePath = bundleMap[bundleID] else {
                 continue
             }
 
-            // MARK: Name (EXACT same logic as your working code)
-            let name =
-                (info["CFBundleDisplayName"] as? String) ??
-                (info["CFBundleName"] as? String) ??
-                (item as NSString).deletingPathExtension
+            let name = readName(bundlePath: bundlePath, fallback: bundleID)
+            let icon = readIcon(bundlePath: bundlePath)
 
-            // MARK: Icon (EXACT same fallback chain)
-            var icon: UIImage? = nil
-
-            if let icons = info["CFBundleIcons"] as? [String: Any],
-               let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
-               let iconfiles = primary["CFBundleIconFiles"] as? [String],
-               let iconname = iconfiles.last {
-
-                let iconpath = fullAppPath + "/" + iconname
-
-                if let img = UIImage(contentsOfFile: iconpath) {
-                    icon = img
-                } else if let img = UIImage(contentsOfFile: iconpath + "@2x.png") {
-                    icon = img
-                } else if let img = UIImage(contentsOfFile: iconpath + ".png") {
-                    icon = img
-                }
-            }
-
-            return BundleInfo(
-                name: name,
-                bundleID: currentBundleID,
-                bundlePath: fullAppPath,
-                icon: icon
+            results.append(
+                ResolvedApp(
+                    dataUUID: dataUUID,
+                    bundleID: bundleID,
+                    bundlePath: bundlePath,
+                    name: name,
+                    icon: icon
+                )
             )
         }
+
+        return results
     }
 
-    return nil
+    // MARK: Bundle map (identifier → bundle path)
+
+    private func buildBundleMap() -> [String: String] {
+
+        var map: [String: String] = [:]
+
+        guard let roots = try? fm.contentsOfDirectory(atPath: bundleRoot) else {
+            return map
+        }
+
+        for root in roots {
+
+            let rootPath = bundleRoot + "/" + root
+
+            guard let items = try? fm.contentsOfDirectory(atPath: rootPath) else {
+                continue
+            }
+
+            for item in items where item.hasSuffix(".app") {
+
+                let appPath = rootPath + "/" + item
+                let metaPath = appPath + "/.com.apple.mobile_container_manager.metadata.plist"
+
+                guard
+                    let meta = NSDictionary(contentsOfFile: metaPath),
+                    let bundleID = meta["MCMMetadataIdentifier"] as? String
+                else { continue }
+
+                map[bundleID] = appPath
+            }
+        }
+
+        return map
+    }
+
+    // MARK: Name
+
+    private func readName(bundlePath: String, fallback: String) -> String {
+
+        let infoPath = bundlePath + "/Info.plist"
+
+        guard let info = NSDictionary(contentsOfFile: infoPath) else {
+            return fallback
+        }
+
+        return info["CFBundleDisplayName"] as? String ??
+               info["CFBundleName"] as? String ??
+               fallback
+    }
+
+    // MARK: Icon
+
+    private func readIcon(bundlePath: String) -> UIImage? {
+
+        let infoPath = bundlePath + "/Info.plist"
+
+        guard
+            let info = NSDictionary(contentsOfFile: infoPath),
+            let icons = info["CFBundleIcons"] as? [String: Any],
+            let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
+            let files = primary["CFBundleIconFiles"] as? [String],
+            let iconName = files.last
+        else {
+            return UIImage(systemName: "app")
+        }
+
+        let path = bundlePath + "/" + iconName
+
+        return UIImage(contentsOfFile: path)
+            ?? UIImage(contentsOfFile: path + "@2x.png")
+            ?? UIImage(contentsOfFile: path + ".png")
+    }
 }
