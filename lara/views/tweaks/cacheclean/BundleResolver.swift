@@ -8,7 +8,7 @@
 import Foundation
 import UIKit
 
-// MARK: - Final Model (KEYED BY DATA UUID)
+// MARK: - Final Model (DATABASE ENTRY)
 
 struct ResolvedApp {
     let dataUUID: String
@@ -18,7 +18,7 @@ struct ResolvedApp {
     let icon: UIImage?
 }
 
-// MARK: - Resolver
+// MARK: - Resolver (BUILDS DATA UUID DATABASE)
 
 final class BundleResolver {
 
@@ -27,17 +27,21 @@ final class BundleResolver {
     private let bundleRoot = "/var/containers/Bundle/Application"
     private let dataRoot = "/var/mobile/Containers/Data/Application"
 
-    // MARK: Public
+    // MARK: Public API
 
     func resolveAll() -> [ResolvedApp] {
 
-        let bundleMap = buildBundleMap()   // identifier → bundlePath
-        var results: [ResolvedApp] = []
+        // 🔥 STEP 1: Build bundleID → bundlePath map
+        let bundleMap = buildBundleMap()
 
+        // 🔥 STEP 2: Read data containers
         guard let dataContainers = try? fm.contentsOfDirectory(atPath: dataRoot) else {
             return []
         }
 
+        var results: [ResolvedApp] = []
+
+        // 🔥 STEP 3: Match DATA UUID → bundleID → bundle
         for dataUUID in dataContainers {
 
             let dataPath = dataRoot + "/" + dataUUID
@@ -45,23 +49,19 @@ final class BundleResolver {
 
             guard
                 let meta = NSDictionary(contentsOfFile: metaPath),
-                let bundleID = meta["MCMMetadataIdentifier"] as? String
-            else { continue }
-
-            guard let bundlePath = bundleMap[bundleID] else {
+                let bundleID = meta["MCMMetadataIdentifier"] as? String,
+                let bundlePath = bundleMap[bundleID]
+            else {
                 continue
             }
-
-            let name = readName(bundlePath: bundlePath, fallback: bundleID)
-            let icon = readIcon(bundlePath: bundlePath)
 
             results.append(
                 ResolvedApp(
                     dataUUID: dataUUID,
                     bundleID: bundleID,
                     bundlePath: bundlePath,
-                    name: name,
-                    icon: icon
+                    name: readName(bundlePath),
+                    icon: readIcon(bundlePath)
                 )
             )
         }
@@ -69,7 +69,7 @@ final class BundleResolver {
         return results
     }
 
-    // MARK: Bundle map (identifier → bundle path)
+    // MARK: Build DB (bundleID → bundlePath)
 
     private func buildBundleMap() -> [String: String] {
 
@@ -95,7 +95,9 @@ final class BundleResolver {
                 guard
                     let meta = NSDictionary(contentsOfFile: metaPath),
                     let bundleID = meta["MCMMetadataIdentifier"] as? String
-                else { continue }
+                else {
+                    continue
+                }
 
                 map[bundleID] = appPath
             }
@@ -106,22 +108,22 @@ final class BundleResolver {
 
     // MARK: Name
 
-    private func readName(bundlePath: String, fallback: String) -> String {
+    private func readName(_ bundlePath: String) -> String {
 
         let infoPath = bundlePath + "/Info.plist"
 
         guard let info = NSDictionary(contentsOfFile: infoPath) else {
-            return fallback
+            return (bundlePath as NSString).lastPathComponent
         }
 
         return info["CFBundleDisplayName"] as? String ??
                info["CFBundleName"] as? String ??
-               fallback
+               (bundlePath as NSString).lastPathComponent
     }
 
     // MARK: Icon
 
-    private func readIcon(bundlePath: String) -> UIImage? {
+    private func readIcon(_ bundlePath: String) -> UIImage? {
 
         let infoPath = bundlePath + "/Info.plist"
 
@@ -135,10 +137,10 @@ final class BundleResolver {
             return UIImage(systemName: "app")
         }
 
-        let path = bundlePath + "/" + iconName
+        let basePath = bundlePath + "/" + iconName
 
-        return UIImage(contentsOfFile: path)
-            ?? UIImage(contentsOfFile: path + "@2x.png")
-            ?? UIImage(contentsOfFile: path + ".png")
+        return UIImage(contentsOfFile: basePath)
+            ?? UIImage(contentsOfFile: basePath + "@2x.png")
+            ?? UIImage(contentsOfFile: basePath + ".png")
     }
 }
