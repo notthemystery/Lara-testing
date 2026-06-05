@@ -1,8 +1,6 @@
 //
-//
-// BundleResolver.swift
-//
-// lara
+//  BundleResolver.swift
+//  lara
 //
 
 import Foundation
@@ -42,37 +40,47 @@ final class BundleResolver {
         for dataUUID in dataContainers {
 
             let dataPath = dataRoot + "/" + dataUUID
-
             let metaPath = dataPath + "/.com.apple.mobile_container_manager.metadata.plist"
 
-            // 🔥 STEP 1: Try metadata
-            var bundleID: String? =
+            // MARK: STEP 1 - metadata
+            var bundleID =
                 NSDictionary(contentsOfFile: metaPath)?["MCMMetadataIdentifier"] as? String
 
-            // 🔥 STEP 2: fallback → scan Info.plist inside data container apps
+            // MARK: STEP 2 - fallback scan inside container
             if bundleID == nil {
                 bundleID = findBundleIDInDataContainer(dataPath)
             }
 
-            guard let finalBundleID = bundleID else {
-                continue
-            }
+            // ❗ DO NOT DROP APP
+            let finalBundleID = bundleID ?? "unknown.\(dataUUID)"
 
-            // 🔥 STEP 3: resolve bundle path
-            let bundlePath =
-                bundleMap[finalBundleID] ?? findBundlePathFallback(bundleID: finalBundleID)
+            // MARK: STEP 3 - resolve bundle path
+            let resolvedBundlePath =
+                bundleID != nil
+                ? (bundleMap[finalBundleID] ?? findBundlePathFallback(bundleID: finalBundleID))
+                : nil
 
-            guard let finalBundlePath = bundlePath else {
-                continue
-            }
+            let finalBundlePath = resolvedBundlePath ?? ""
+
+            // MARK: STEP 4 - name resolution (NEVER FAIL)
+            let finalName = readSafeName(
+                bundlePath: finalBundlePath.isEmpty ? dataPath : finalBundlePath,
+                fallback: dataUUID
+            )
+
+            // MARK: STEP 5 - icon resolution (NEVER FAIL)
+            let finalIcon =
+                finalBundlePath.isEmpty
+                ? UIImage(systemName: "app")
+                : readIcon(finalBundlePath)
 
             results.append(
                 ResolvedApp(
                     dataUUID: dataUUID,
                     bundleID: finalBundleID,
                     bundlePath: finalBundlePath,
-                    name: readName(finalBundlePath),
-                    icon: readIcon(finalBundlePath)
+                    name: finalName,
+                    icon: finalIcon
                 )
             )
         }
@@ -102,14 +110,14 @@ final class BundleResolver {
 
                 let appPath = rootPath + "/" + item
 
-                // 🔥 PRIMARY source
+                // PRIMARY
                 if let meta = NSDictionary(contentsOfFile: appPath + "/.com.apple.mobile_container_manager.metadata.plist"),
                    let bundleID = meta["MCMMetadataIdentifier"] as? String {
                     map[bundleID] = appPath
                     continue
                 }
 
-                // 🔥 FALLBACK source (Info.plist)
+                // FALLBACK
                 if let info = NSDictionary(contentsOfFile: appPath + "/Info.plist"),
                    let bundleID = info["CFBundleIdentifier"] as? String {
                     map[bundleID] = appPath
@@ -120,7 +128,7 @@ final class BundleResolver {
         return map
     }
 
-    // MARK: Data container fallback scan
+    // MARK: Data container scan
 
     private func findBundleIDInDataContainer(_ dataPath: String) -> String? {
 
@@ -141,7 +149,7 @@ final class BundleResolver {
         return nil
     }
 
-    // MARK: Bundle fallback (last resort)
+    // MARK: Bundle fallback
 
     private func findBundlePathFallback(bundleID: String) -> String? {
 
@@ -172,22 +180,22 @@ final class BundleResolver {
         return nil
     }
 
-    // MARK: Name
+    // MARK: SAFE NAME (never empty)
 
-    private func readName(_ bundlePath: String) -> String {
+    private func readSafeName(bundlePath: String, fallback: String) -> String {
 
         let infoPath = bundlePath + "/Info.plist"
 
         guard let info = NSDictionary(contentsOfFile: infoPath) else {
-            return (bundlePath as NSString).lastPathComponent
+            return fallback
         }
 
         return info["CFBundleDisplayName"] as? String ??
                info["CFBundleName"] as? String ??
-               (bundlePath as NSString).lastPathComponent
+               fallback
     }
 
-    // MARK: Icon (improved fallback)
+    // MARK: Icon
 
     private func readIcon(_ bundlePath: String) -> UIImage? {
 
@@ -209,7 +217,6 @@ final class BundleResolver {
                 ?? UIImage(contentsOfFile: path + ".png")
         }
 
-        // 🔥 fallback icon
         return UIImage(systemName: "app")
     }
 }
