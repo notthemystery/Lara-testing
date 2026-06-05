@@ -39,6 +39,16 @@ struct StorageSnapshot: Identifiable {
     let totalBytes: Int64
 }
 
+// MARK: - Resolver Output (FAST LOOKUP DB)
+
+struct AppRecord {
+    let dataUUID: String
+    let bundleID: String
+    let bundlePath: String
+    let name: String
+    let icon: UIImage?
+}
+
 // MARK: - Manager
 
 final class CleanerManager: ObservableObject {
@@ -53,11 +63,25 @@ final class CleanerManager: ObservableObject {
     @Published var totalCacheBytes: Int64 = 0
 
     private let fm = FileManager.default
-
     private let dataRoot = "/var/mobile/Containers/Data/Application"
 
-    // MARK: Resolver (YOU plug your BundleResolver here)
+    // MARK: Resolver (BUILD ONCE → DICTIONARY)
     private let resolver = BundleResolver()
+
+    private var appDB: [String: AppRecord] = [:] // dataUUID → AppRecord
+
+    private func buildDatabase() {
+        let resolved = resolver.resolveAll()
+        appDB = Dictionary(uniqueKeysWithValues: resolved.map {
+            ($0.dataUUID, AppRecord(
+                dataUUID: $0.dataUUID,
+                bundleID: $0.bundleID,
+                bundlePath: $0.bundlePath,
+                name: $0.name,
+                icon: $0.icon
+            ))
+        })
+    }
 
     // MARK: Scan
 
@@ -72,10 +96,11 @@ final class CleanerManager: ObservableObject {
 
         DispatchQueue.global(qos: .userInitiated).async {
 
+            self.buildDatabase()  
+
             var results: [CacheApp] = []
 
             let dataContainers = (try? self.fm.contentsOfDirectory(atPath: self.dataRoot)) ?? []
-            let resolved = self.resolver.resolveAll()
 
             let total = max(dataContainers.count, 1)
             var processed = 0
@@ -88,11 +113,6 @@ final class CleanerManager: ObservableObject {
                 let tmpPath = dataPath + "/tmp"
                 let docsPath = dataPath + "/Documents"
 
-                guard self.fm.fileExists(atPath: cachePath) else {
-                    processed += 1
-                    continue
-                }
-
                 let cacheSize = self.folderSize(cachePath)
                 let tmpSize = self.folderSize(tmpPath)
                 let docsSize = self.folderSize(docsPath)
@@ -104,8 +124,7 @@ final class CleanerManager: ObservableObject {
                     continue
                 }
 
-                // MARK: Match by DATA UUID (resolver output)
-                guard let appInfo = resolved.first(where: { $0.dataUUID == uuid }) else {
+                guard let appInfo = self.appDB[uuid] else {
                     processed += 1
                     continue
                 }
