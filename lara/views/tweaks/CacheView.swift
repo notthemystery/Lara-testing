@@ -9,7 +9,9 @@ struct CacheApp: Identifiable {
     let id: String
     let name: String
     let bundleID: String
-    let appPath: String
+
+    let appBundlePath: String
+    let dataContainerPath: String
 
     let icon: UIImage?
 
@@ -44,7 +46,9 @@ final class CleanerManager: ObservableObject {
     @Published var totalCacheBytes: Int64 = 0
 
     private let fm = FileManager.default
+
     private let dataRoot = "/private/var/mobile/Containers/Data/Application"
+    private let bundleRoot = "/private/var/mobile/Containers/Bundle/Application"
 
     // MARK: Scan
 
@@ -60,7 +64,9 @@ final class CleanerManager: ObservableObject {
 
             var results: [CacheApp] = []
 
-            guard let containers = try? self.fm.contentsOfDirectory(atPath: self.dataRoot) else {
+            guard let dataContainers = try? self.fm.contentsOfDirectory(atPath: self.dataRoot),
+                  let bundleMap = self.buildBundleMap()
+            else {
                 DispatchQueue.main.async {
                     self.isScanning = false
                     self.statusText = "No containers found"
@@ -68,22 +74,25 @@ final class CleanerManager: ObservableObject {
                 return
             }
 
-            let total = max(containers.count, 1)
+            let total = max(dataContainers.count, 1)
             var processed = 0
 
-            for uuid in containers {
+            for uuid in dataContainers {
 
-                let container = self.dataRoot + "/" + uuid
+                let dataPath = self.dataRoot + "/" + uuid
 
-                let cache = container + "/Library/Caches"
-                let tmp = container + "/tmp"
-                let docs = container + "/Documents"
+                let cachePath = dataPath + "/Library/Caches"
+                let tmpPath = dataPath + "/tmp"
+                let docsPath = dataPath + "/Documents"
 
-                guard self.fm.fileExists(atPath: cache) else { continue }
+                guard self.fm.fileExists(atPath: cachePath) else {
+                    processed += 1
+                    continue
+                }
 
-                let cacheSize = self.folderSize(cache)
-                let tmpSize = self.folderSize(tmp)
-                let docsSize = self.folderSize(docs)
+                let cacheSize = self.folderSize(cachePath)
+                let tmpSize = self.folderSize(tmpPath)
+                let docsSize = self.folderSize(docsPath)
 
                 let totalSize = cacheSize + tmpSize + docsSize
 
@@ -92,33 +101,43 @@ final class CleanerManager: ObservableObject {
                     continue
                 }
 
-                let infoPath = self.findAppInfoPlist(in: container)
+                let infoPath = self.findAppInfoPlist(in: dataPath)
                 let info = NSDictionary(contentsOfFile: infoPath ?? "")
 
                 let bundleID = info?["CFBundleIdentifier"] as? String ?? uuid
 
-                let name =
-                    info?["CFBundleDisplayName"] as? String ??
-                    info?["CFBundleName"] as? String ??
-                    self.resolveAppName(from: bundleID) ??
-                    bundleID
+                let bundlePath = bundleMap[bundleID]
 
-                let appPath = self.findAppBundle(in: container) ?? container
+                let name: String = {
+                    if let bundlePath,
+                       let info = NSDictionary(contentsOfFile: bundlePath + "/Info.plist") {
 
-                let icon = self.loadIcon(appPath: appPath, info: info)
+                        return info["CFBundleDisplayName"] as? String ??
+                               info["CFBundleName"] as? String ??
+                               bundleID
+                    }
+                    return bundleID
+                }()
+
+                let icon = self.loadIcon(bundlePath: bundlePath)
 
                 results.append(CacheApp(
                     id: bundleID,
                     name: name,
                     bundleID: bundleID,
-                    appPath: appPath,
+
+                    appBundlePath: bundlePath ?? "",
+                    dataContainerPath: dataPath,
+
                     icon: icon,
+
                     cacheSize: cacheSize,
                     tmpSize: tmpSize,
                     documentsSize: docsSize,
-                    cachePath: cache,
-                    tmpPath: tmp,
-                    documentsPath: docs
+
+                    cachePath: cachePath,
+                    tmpPath: tmpPath,
+                    documentsPath: docsPath
                 ))
 
                 processed += 1
@@ -148,21 +167,63 @@ final class CleanerManager: ObservableObject {
         }
     }
 
-    // MARK: Cleaners
+    // MARK: DELETE (FIXED)
 
-    func cleanCache(_ app: CacheApp) {
+    func deleteAppCache(_ app: CacheApp) {
+
         try? fm.removeItem(atPath: app.cachePath)
         try? fm.removeItem(atPath: app.tmpPath)
+
         startScan()
     }
 
-    func cleanAll() {
+    func deleteAppAllData(_ app: CacheApp) {
+
+        try? fm.removeItem(atPath: app.cachePath)
+        try? fm.removeItem(atPath: app.tmpPath)
+        try? fm.removeItem(atPath: app.documentsPath)
+
+        startScan()
+    }
+
+    func deleteAll() {
         for app in apps {
-            cleanCache(app)
+            deleteAppCache(app)
         }
     }
 
-    // MARK: WKWebView Cleaner
+    // MARK: Bundle map
+
+    private func buildBundleMap() -> [String: String]? {
+
+        var map: [String: String] = [:]
+
+        guard let bundles = try? fm.contentsOfDirectory(atPath: bundleRoot) else {
+            return nil
+        }
+
+        for uuid in bundles {
+
+            let path = bundleRoot + "/" + uuid
+
+            guard let apps = try? fm.contentsOfDirectory(atPath: path) else { continue }
+
+            for app in apps where app.hasSuffix(".app") {
+
+                let full = path + "/" + app
+
+                if let info = NSDictionary(contentsOfFile: full + "/Info.plist"),
+                   let bundleID = info["CFBundleIdentifier"] as? String {
+
+                    map[bundleID] = full
+                }
+            }
+        }
+
+        return map
+    }
+
+    // MARK: WKWebView
 
     func cleanWKWebView() {
 
@@ -190,6 +251,32 @@ final class CleanerManager: ObservableObject {
         URLCache.shared.removeAllCachedResponses()
     }
 
+    // MARK: Icon
+
+    private func loadIcon(bundlePath: String?) -> UIImage? {
+
+        guard let bundlePath else {
+            return UIImage(systemName: "app")
+        }
+
+        let bundle = Bundle(path: bundlePath)
+
+        if let iconName = bundle?.object(forInfoDictionaryKey: "CFBundleIconName") as? String {
+            return UIImage(named: iconName)
+        }
+
+        if let info = NSDictionary(contentsOfFile: bundlePath + "/Info.plist"),
+           let icons = info["CFBundleIcons"] as? [String: Any],
+           let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
+           let files = primary["CFBundleIconFiles"] as? [String],
+           let name = files.last {
+
+            return UIImage(contentsOfFile: bundlePath + "/" + name)
+        }
+
+        return UIImage(systemName: "app")
+    }
+
     // MARK: Helpers
 
     private func folderSize(_ path: String) -> Int64 {
@@ -209,44 +296,13 @@ final class CleanerManager: ObservableObject {
         return size
     }
 
-    private func findAppBundle(in container: String) -> String? {
-        guard let items = try? fm.contentsOfDirectory(atPath: container) else { return nil }
-
-        return items.first(where: { $0.hasSuffix(".app") })
-            .map { container + "/" + $0 }
-    }
-
     private func findAppInfoPlist(in container: String) -> String? {
-        guard let app = findAppBundle(in: container) else { return nil }
-        return app + "/Info.plist"
-    }
+        let app = (try? fm.contentsOfDirectory(atPath: container))?
+            .first(where: { $0.hasSuffix(".app") })
 
-    // MARK: FIXED ICON LOADER
+        guard let app else { return nil }
 
-    private func loadIcon(appPath: String, info: NSDictionary?) -> UIImage? {
-
-        let bundle = Bundle(path: appPath)
-
-        if let bundle = bundle,
-           let icon = bundle.object(forInfoDictionaryKey: "CFBundleIconName") as? String {
-            return UIImage(named: icon)
-        }
-
-        if let icons = info?["CFBundleIcons"] as? [String: Any],
-           let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
-           let files = primary["CFBundleIconFiles"] as? [String],
-           let name = files.last {
-
-            return UIImage(contentsOfFile: appPath + "/" + name)
-        }
-
-        return UIImage(systemName: "app")
-    }
-
-    // MARK: Name resolver (best-effort)
-
-    private func resolveAppName(from bundleID: String) -> String? {
-        return nil
+        return container + "/" + app + "/Info.plist"
     }
 }
 
@@ -279,6 +335,7 @@ struct CacheView: View {
                         ForEach(mgr.apps) { app in
 
                             HStack {
+
                                 if let icon = app.icon {
                                     Image(uiImage: icon)
                                         .resizable()
@@ -298,10 +355,30 @@ struct CacheView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
+                            .swipeActions(edge: .trailing) {
+
+                                Button(role: .destructive) {
+                                    mgr.deleteAppCache(app)
+                                } label: {
+                                    Text("Cache")
+                                }
+
+                                Button(role: .destructive) {
+                                    mgr.deleteAppAllData(app)
+                                } label: {
+                                    Text("All")
+                                }
+                            }
                         }
                     }
 
                     Section("Tools") {
+
+                        Button("Delete ALL Cache") {
+                            mgr.deleteAll()
+                        }
+                        .foregroundStyle(.red)
+
                         Button("Clear WKWebView") {
                             mgr.cleanWKWebView()
                         }
@@ -312,13 +389,6 @@ struct CacheView: View {
 
                         Button("Rescan") {
                             mgr.startScan()
-                        }
-                    }
-
-                    Section("History") {
-                        ForEach(mgr.snapshots) { snap in
-                            Text("\(snap.totalBytes / 1024 / 1024) MB")
-                                .font(.caption)
                         }
                     }
                 }
