@@ -9,7 +9,7 @@
     <key>CFBundleIdentifier</key>
         <string>com.roooot.lara</string>
     <key>CFBundleExecutable</key>
-        <string>Lara</string>
+        <string>lara</string>
     <key>CFBundleName</key>
         <string>Lara</string>
     <key>CFBundlePackageType</key>
