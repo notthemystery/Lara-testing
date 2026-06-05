@@ -176,7 +176,7 @@ final class CleanerManager: ObservableObject {
 
 // MARK: - UI
 
-struct CleanerView: View {
+struct CacheView: View {
 
     @StateObject var mgr = CleanerManager()
 
