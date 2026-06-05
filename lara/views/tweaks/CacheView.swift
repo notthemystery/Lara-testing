@@ -47,7 +47,7 @@ final class CleanerManager: ObservableObject {
 
     private let fm = FileManager.default
 
-    // MARK: - Separate roots (IMPORTANT)
+    // MARK: Roots
 
     private let dataRoot = "/var/mobile/Containers/Data/Application"
     private let bundleRoot = "/var/containers/Bundle/Application"
@@ -97,22 +97,25 @@ final class CleanerManager: ObservableObject {
                     continue
                 }
 
-                // MARK: Bundle lookup (NAME + ICON ONLY)
-
+                // MARK: Bundle ID from data container
                 let bundleID = self.extractBundleID(from: dataPath) ?? uuid
+
                 let bundlePath = bundleMap[bundleID]
 
+                // MARK: Name (bundle first, fallback safe)
                 let name: String = {
-                    if let bundlePath,
-                       let info = NSDictionary(contentsOfFile: bundlePath + "/Info.plist") {
-                        return info["CFBundleDisplayName"] as? String ??
-                               info["CFBundleName"] as? String ??
-                               bundleID
+                    guard let bundlePath,
+                          let info = NSDictionary(contentsOfFile: bundlePath + "/Info.plist") else {
+                        return bundleID
                     }
-                    return bundleID
+
+                    return info["CFBundleDisplayName"] as? String ??
+                           info["CFBundleName"] as? String ??
+                           bundleID
                 }()
 
-                let icon = self.loadIcon(bundlePath: bundlePath)
+                // MARK: Icon
+                let icon = self.loadIcon(from: bundlePath)
 
                 results.append(CacheApp(
                     id: bundleID,
@@ -160,39 +163,40 @@ final class CleanerManager: ObservableObject {
         }
     }
 
-    // MARK: - BUNDLE MAP (names + icons)
+    // MARK: Bundle Map (FIXED)
 
     private func buildBundleMap() -> [String: String] {
 
         var map: [String: String] = [:]
 
-        guard let bundles = try? fm.contentsOfDirectory(atPath: bundleRoot) else {
+        guard let roots = try? fm.contentsOfDirectory(atPath: bundleRoot) else {
             return map
         }
 
-        for uuid in bundles {
+        for root in roots {
 
-            let path = bundleRoot + "/" + uuid
+            let rootPath = bundleRoot + "/" + root
 
-            guard let apps = try? fm.contentsOfDirectory(atPath: path) else { continue }
+            guard let apps = try? fm.contentsOfDirectory(atPath: rootPath) else { continue }
 
             for app in apps where app.hasSuffix(".app") {
 
-                let full = path + "/" + app
-                let infoPath = full + "/Info.plist"
+                let appPath = rootPath + "/" + app
+                let infoPath = appPath + "/Info.plist"
 
-                if let info = NSDictionary(contentsOfFile: infoPath),
-                   let bundleID = info["CFBundleIdentifier"] as? String {
-
-                    map[bundleID] = full
+                guard let info = NSDictionary(contentsOfFile: infoPath),
+                      let bundleID = info["CFBundleIdentifier"] as? String else {
+                    continue
                 }
+
+                map[bundleID] = appPath
             }
         }
 
         return map
     }
 
-    // MARK: - Extract bundle id from data container (safe heuristic)
+    // MARK: Extract bundle ID (DATA container)
 
     private func extractBundleID(from dataPath: String) -> String? {
 
@@ -206,7 +210,7 @@ final class CleanerManager: ObservableObject {
         return NSDictionary(contentsOfFile: plist)?["CFBundleIdentifier"] as? String
     }
 
-    // MARK: - CLEANERS
+    // MARK: Delete
 
     func deleteCache(_ app: CacheApp) {
         try? fm.removeItem(atPath: app.cachePath)
@@ -220,7 +224,7 @@ final class CleanerManager: ObservableObject {
         }
     }
 
-    // MARK: - WKWebView
+    // MARK: WKWebView
 
     func cleanWKWebView() {
 
@@ -248,33 +252,29 @@ final class CleanerManager: ObservableObject {
         URLCache.shared.removeAllCachedResponses()
     }
 
-    // MARK: - ICON LOADER
+    // MARK: Icon loader (FIXED)
 
-    private func loadIcon(bundlePath: String?) -> UIImage? {
+    private func loadIcon(from bundlePath: String?) -> UIImage? {
 
         guard let bundlePath else {
             return UIImage(systemName: "app")
         }
 
-        let bundle = Bundle(path: bundlePath)
+        let infoPath = bundlePath + "/Info.plist"
 
-        if let iconName = bundle?.object(forInfoDictionaryKey: "CFBundleIconName") as? String {
-            return UIImage(named: iconName)
+        guard let info = NSDictionary(contentsOfFile: infoPath),
+              let icons = info["CFBundleIcons"] as? [String: Any],
+              let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
+              let files = primary["CFBundleIconFiles"] as? [String],
+              let iconName = files.last else {
+            return UIImage(systemName: "app")
         }
 
-        if let info = NSDictionary(contentsOfFile: bundlePath + "/Info.plist"),
-           let icons = info["CFBundleIcons"] as? [String: Any],
-           let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
-           let files = primary["CFBundleIconFiles"] as? [String],
-           let name = files.last {
-
-            return UIImage(contentsOfFile: bundlePath + "/" + name)
-        }
-
-        return UIImage(systemName: "app")
+        let iconPath = bundlePath + "/" + iconName
+        return UIImage(contentsOfFile: iconPath)
     }
 
-    // MARK: - SIZE
+    // MARK: Size
 
     private func folderSize(_ path: String) -> Int64 {
 
@@ -338,7 +338,6 @@ struct CacheView: View {
 
                                 VStack(alignment: .leading) {
                                     Text(app.name).bold()
-
                                     Text("Cache \(app.cacheSize / 1024 / 1024) MB")
                                     Text("Tmp \(app.tmpSize / 1024 / 1024) MB")
                                     Text("Docs \(app.documentsSize / 1024 / 1024) MB")
