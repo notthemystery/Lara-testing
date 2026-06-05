@@ -50,7 +50,6 @@ final class CleanerManager: ObservableObject {
     // MARK: Roots
 
     private let dataRoot = "/var/mobile/Containers/Data/Application"
-    private let bundleRoot = "/var/containers/Bundle/Application"
 
     // MARK: Scan
 
@@ -68,7 +67,6 @@ final class CleanerManager: ObservableObject {
             var results: [CacheApp] = []
 
             let dataContainers = (try? self.fm.contentsOfDirectory(atPath: self.dataRoot)) ?? []
-            let bundleMap = self.buildBundleMap()
 
             let total = max(dataContainers.count, 1)
             var processed = 0
@@ -100,22 +98,11 @@ final class CleanerManager: ObservableObject {
                 // MARK: Bundle ID from data container
                 let bundleID = self.extractBundleID(from: dataPath) ?? uuid
 
-                let bundlePath = bundleMap[bundleID]
+                let bundleInfo = resolveBundleInfo(bundleID: bundleID)
 
-                // MARK: Name (bundle first, fallback safe)
-                let name: String = {
-                    guard let bundlePath,
-                          let info = NSDictionary(contentsOfFile: bundlePath + "/Info.plist") else {
-                        return bundleID
-                    }
-
-                    return info["CFBundleDisplayName"] as? String ??
-                           info["CFBundleName"] as? String ??
-                           bundleID
-                }()
-
-                // MARK: Icon
-                let icon = self.loadIcon(from: bundlePath)
+                let name = bundleInfo?.name ?? bundleID
+                let icon = bundleInfo?.icon
+                let bundlePath = bundleInfo?.bundlePath
 
                 results.append(CacheApp(
                     id: bundleID,
@@ -161,39 +148,6 @@ final class CleanerManager: ObservableObject {
                 self.statusText = "Completed (\(results.count) apps)"
             }
         }
-    }
-
-    // MARK: Bundle Map (FIXED)
-
-    private func buildBundleMap() -> [String: String] {
-
-        var map: [String: String] = [:]
-
-        guard let roots = try? fm.contentsOfDirectory(atPath: bundleRoot) else {
-            return map
-        }
-
-        for root in roots {
-
-            let rootPath = bundleRoot + "/" + root
-
-            guard let apps = try? fm.contentsOfDirectory(atPath: rootPath) else { continue }
-
-            for app in apps where app.hasSuffix(".app") {
-
-                let appPath = rootPath + "/" + app
-                let infoPath = appPath + "/Info.plist"
-
-                guard let info = NSDictionary(contentsOfFile: infoPath),
-                      let bundleID = info["CFBundleIdentifier"] as? String else {
-                    continue
-                }
-
-                map[bundleID] = appPath
-            }
-        }
-
-        return map
     }
 
     // MARK: Extract bundle ID (DATA container)
@@ -250,28 +204,6 @@ final class CleanerManager: ObservableObject {
 
     func cleanURLCache() {
         URLCache.shared.removeAllCachedResponses()
-    }
-
-    // MARK: Icon loader (FIXED)
-
-    private func loadIcon(from bundlePath: String?) -> UIImage? {
-
-        guard let bundlePath else {
-            return UIImage(systemName: "app")
-        }
-
-        let infoPath = bundlePath + "/Info.plist"
-
-        guard let info = NSDictionary(contentsOfFile: infoPath),
-              let icons = info["CFBundleIcons"] as? [String: Any],
-              let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
-              let files = primary["CFBundleIconFiles"] as? [String],
-              let iconName = files.last else {
-            return UIImage(systemName: "app")
-        }
-
-        let iconPath = bundlePath + "/" + iconName
-        return UIImage(contentsOfFile: iconPath)
     }
 
     // MARK: Size
