@@ -252,7 +252,7 @@ struct CleanerView: View {
                     }
                 }
             }
-            .navigationTitle("Live Cleaner")
+            .navigationTitle("Clean Cache")
 
             .onAppear {
                 mgr.startScan()
