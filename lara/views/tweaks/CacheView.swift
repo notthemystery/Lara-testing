@@ -16,14 +16,13 @@ struct CacheApp: Identifiable {
     let cacheSize: Int64
     let tmpSize: Int64
     let documentsSize: Int64
-    let webViewEstimate: Int64
 
     let cachePath: String
     let tmpPath: String
     let documentsPath: String
 }
 
-// MARK: - Storage Snapshot (growth tracking)
+// MARK: - Snapshot
 
 struct StorageSnapshot: Identifiable {
     let id = UUID()
@@ -47,7 +46,7 @@ final class CleanerManager: ObservableObject {
     private let fm = FileManager.default
     private let dataRoot = "/private/var/mobile/Containers/Data/Application"
 
-    // MARK: - Scan
+    // MARK: Scan
 
     func startScan(minSizeMB: Int64 = 4) {
         guard !isScanning else { return }
@@ -70,8 +69,9 @@ final class CleanerManager: ObservableObject {
             }
 
             let total = max(containers.count, 1)
+            var processed = 0
 
-            for (index, uuid) in containers.enumerated() {
+            for uuid in containers {
 
                 let container = self.dataRoot + "/" + uuid
 
@@ -87,7 +87,10 @@ final class CleanerManager: ObservableObject {
 
                 let totalSize = cacheSize + tmpSize + docsSize
 
-                guard totalSize > minSizeMB * 1024 * 1024 else { continue }
+                if totalSize < minSizeMB * 1024 * 1024 {
+                    processed += 1
+                    continue
+                }
 
                 let infoPath = self.findAppInfoPlist(in: container)
                 let info = NSDictionary(contentsOfFile: infoPath ?? "")
@@ -97,14 +100,12 @@ final class CleanerManager: ObservableObject {
                 let name =
                     info?["CFBundleDisplayName"] as? String ??
                     info?["CFBundleName"] as? String ??
+                    self.resolveAppName(from: bundleID) ??
                     bundleID
 
                 let appPath = self.findAppBundle(in: container) ?? container
 
                 let icon = self.loadIcon(appPath: appPath, info: info)
-
-                // WebView heuristic estimate
-                let webViewEstimate = self.estimateWebViewCache(in: container)
 
                 results.append(CacheApp(
                     id: bundleID,
@@ -115,16 +116,17 @@ final class CleanerManager: ObservableObject {
                     cacheSize: cacheSize,
                     tmpSize: tmpSize,
                     documentsSize: docsSize,
-                    webViewEstimate: webViewEstimate,
                     cachePath: cache,
                     tmpPath: tmp,
                     documentsPath: docs
                 ))
 
-                let progress = Double(index + 1) / Double(total)
+                processed += 1
+
+                let progress = Double(processed) / Double(total)
 
                 DispatchQueue.main.async {
-                    self.scanProgress = progress
+                    self.scanProgress = min(progress, 1.0)
                     self.statusText = "Scanning... \(Int(progress * 100))%"
                 }
             }
@@ -137,22 +139,20 @@ final class CleanerManager: ObservableObject {
                 self.apps = results.sorted { $0.cacheSize > $1.cacheSize }
                 self.totalCacheBytes = totalBytes
 
-                self.snapshots.append(
-                    StorageSnapshot(totalBytes: totalBytes)
-                )
+                self.snapshots.append(StorageSnapshot(totalBytes: totalBytes))
 
                 self.isScanning = false
-                self.statusText = "Found \(results.count) apps"
+                self.scanProgress = 1.0
+                self.statusText = "Completed (\(results.count) apps)"
             }
         }
     }
 
-    // MARK: - Cleaners
+    // MARK: Cleaners
 
     func cleanCache(_ app: CacheApp) {
         try? fm.removeItem(atPath: app.cachePath)
         try? fm.removeItem(atPath: app.tmpPath)
-
         startScan()
     }
 
@@ -162,7 +162,7 @@ final class CleanerManager: ObservableObject {
         }
     }
 
-    // MARK: - WKWebView FULL CLEAN (real API)
+    // MARK: WKWebView Cleaner
 
     func cleanWKWebView() {
 
@@ -181,7 +181,7 @@ final class CleanerManager: ObservableObject {
             modifiedSince: Date(timeIntervalSince1970: 0)
         ) {
             DispatchQueue.main.async {
-                self.statusText = "WKWebView fully cleared"
+                self.statusText = "WKWebView cleared"
             }
         }
     }
@@ -190,43 +190,7 @@ final class CleanerManager: ObservableObject {
         URLCache.shared.removeAllCachedResponses()
     }
 
-    // MARK: - Hidden cache heuristics
-
-    private func estimateWebViewCache(in container: String) -> Int64 {
-        let web = container + "/Library/WebKit"
-        return folderSize(web)
-    }
-
-    // MARK: - Duplicate detection (safe only)
-
-    func findDuplicates(in path: String) -> Int {
-
-        guard let e = fm.enumerator(atPath: path) else { return 0 }
-
-        var seen: [String: String] = [:]
-        var duplicates = 0
-
-        for case let file as String in e {
-
-            let full = (path as NSString).appendingPathComponent(file)
-
-            if let attrs = try? fm.attributesOfItem(atPath: full),
-               let size = attrs[.size] as? NSNumber {
-
-                let key = "\(file)-\(size.int64Value)"
-
-                if seen[key] != nil {
-                    duplicates += 1
-                } else {
-                    seen[key] = full
-                }
-            }
-        }
-
-        return duplicates
-    }
-
-    // MARK: - Helpers
+    // MARK: Helpers
 
     private func folderSize(_ path: String) -> Int64 {
         guard let e = fm.enumerator(atPath: path) else { return 0 }
@@ -257,19 +221,32 @@ final class CleanerManager: ObservableObject {
         return app + "/Info.plist"
     }
 
+    // MARK: FIXED ICON LOADER
+
     private func loadIcon(appPath: String, info: NSDictionary?) -> UIImage? {
-        guard let icons = info?["CFBundleIcons"] as? [String: Any],
-              let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
-              let files = primary["CFBundleIconFiles"] as? [String],
-              let name = files.last else {
-            return UIImage(systemName: "app")
+
+        let bundle = Bundle(path: appPath)
+
+        if let bundle = bundle,
+           let icon = bundle.object(forInfoDictionaryKey: "CFBundleIconName") as? String {
+            return UIImage(named: icon)
         }
 
-        let path = appPath + "/" + name
+        if let icons = info?["CFBundleIcons"] as? [String: Any],
+           let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
+           let files = primary["CFBundleIconFiles"] as? [String],
+           let name = files.last {
 
-        return UIImage(contentsOfFile: path)
-            ?? UIImage(contentsOfFile: path + "@2x.png")
-            ?? UIImage(contentsOfFile: path + ".png")
+            return UIImage(contentsOfFile: appPath + "/" + name)
+        }
+
+        return UIImage(systemName: "app")
+    }
+
+    // MARK: Name resolver (best-effort)
+
+    private func resolveAppName(from bundleID: String) -> String? {
+        return nil
     }
 }
 
@@ -301,21 +278,30 @@ struct CacheView: View {
 
                         ForEach(mgr.apps) { app in
 
-                            VStack(alignment: .leading) {
-                                Text(app.name).bold()
+                            HStack {
+                                if let icon = app.icon {
+                                    Image(uiImage: icon)
+                                        .resizable()
+                                        .frame(width: 40, height: 40)
+                                        .cornerRadius(8)
+                                } else {
+                                    Image(systemName: "app")
+                                }
 
-                                Text("Cache: \(app.cacheSize / 1024 / 1024) MB")
-                                Text("Tmp: \(app.tmpSize / 1024 / 1024) MB")
-                                Text("Docs: \(app.documentsSize / 1024 / 1024) MB")
-                                Text("WebView est: \(app.webViewEstimate / 1024 / 1024) MB")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                VStack(alignment: .leading) {
+                                    Text(app.name).bold()
+
+                                    Text("Cache \(app.cacheSize / 1024 / 1024) MB")
+                                    Text("Tmp \(app.tmpSize / 1024 / 1024) MB")
+                                    Text("Docs \(app.documentsSize / 1024 / 1024) MB")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }
 
                     Section("Tools") {
-
                         Button("Clear WKWebView") {
                             mgr.cleanWKWebView()
                         }
@@ -331,7 +317,7 @@ struct CacheView: View {
 
                     Section("History") {
                         ForEach(mgr.snapshots) { snap in
-                            Text("\(snap.totalBytes / 1024 / 1024) MB at \(snap.date)")
+                            Text("\(snap.totalBytes / 1024 / 1024) MB")
                                 .font(.caption)
                         }
                     }
