@@ -39,7 +39,7 @@ if ! command -v ldid >/dev/null 2>&1; then
   echo "ERROR: ldid not installed. Install with: brew install ldid" >&2
   exit 1
 fi
-ldid -SConfig/lara.entitlements "$PWD/build/Payload/lara.app/lara"
+ldid -SConfig/lara.entitlements "$PWD/build/Payload/lara.app/Lara"
 (cd "$PWD/build" && /usr/bin/zip -qry lara.ipa Payload)
 
 echo
