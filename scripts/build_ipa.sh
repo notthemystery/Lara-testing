@@ -25,21 +25,43 @@ if [ ! -d "$APP_PATH" ]; then
   echo "Missing app at $APP_PATH"
   exit 1
 fi
+
 cd $APP_PATH
+
 mkdir Frameworks
 mv libgrabkernel2.dylib Frameworks/
 mv libxpf.dylib Frameworks/
+
 rm -rf "$PWD/build/Payload"
 mkdir -p "$PWD/build/Payload"
 cp -R "$APP_PATH" "$PWD/build/Payload/"
 
 plutil -replace UIFileSharingEnabled -bool YES "$PWD/build/Payload/lara.app/Info.plist"
 
+APP_BUNDLE=$(find "$PWD/build/Payload" -name "*.app" -type d | head -n 1)
+
+if [ -z "$APP_BUNDLE" ]; then
+  echo "No .app found in Payload"
+  exit 1
+fi
+
+EXEC_NAME=$(/usr/libexec/PlistBuddy -c "Print CFBundleExecutable" "$APP_BUNDLE/Info.plist")
+
+if [ -z "$EXEC_NAME" ]; then
+  echo "Could not read CFBundleExecutable"
+  exit 1
+fi
+
+echo "Detected app: $APP_BUNDLE"
+echo "Detected executable: $EXEC_NAME"
+
 if ! command -v ldid >/dev/null 2>&1; then
   echo "ERROR: ldid not installed. Install with: brew install ldid" >&2
   exit 1
 fi
-ldid -SConfig/lara.entitlements "$PWD/build/Payload/lara.app/Lara"
+
+ldid -SConfig/lara.entitlements "$APP_BUNDLE/$EXEC_NAME"
+
 (cd "$PWD/build" && /usr/bin/zip -qry lara.ipa Payload)
 
 echo
