@@ -254,6 +254,10 @@ struct SettingsView: View {
                     Toggle("Allow >10 dock icons", isOn: $rcDockUnlimited)
                 }
                 #endif
+                
+                Section(header: HeaderLabel(text: "Developer", icon: "gear")) {
+                    Toggle("Enable Developer Mode", isOn: $developer)
+                }
             }
             .navigationTitle("Settings")
             .fileImporter(isPresented: $showkcacheimport, allowedContentTypes: [.data], allowsMultipleSelection: false) { result in
