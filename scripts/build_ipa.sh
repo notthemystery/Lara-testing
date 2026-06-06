@@ -73,10 +73,10 @@ if ! command -v ldid >/dev/null 2>&1; then
 fi
 
 ldid -SConfig/lara.entitlements "$APP_ROOT/$EXEC_NAME"
-cd "$APP_ROOT"
-mkdir Frameworks
-mv libgrabkernel2.dylib Frameworks/
-mv libxpf.dylib Frameworks/
+#cd "$APP_ROOT"
+#mkdir Frameworks
+#mv libgrabkernel2.dylib Frameworks/
+#mv libxpf.dylib Frameworks/
 
 # -----------------------------------
 # BUILD IPA
