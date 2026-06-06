@@ -41,6 +41,7 @@ struct SettingsView: View {
     @State private var importingkcache: Bool = false
     @State private var showkcachetips: Bool = false
     @State private var stashingKRWNow: Bool = false
+    @ObservedObject private var mgr = laramgr.shared
     
     @AppStorage("logsdisplaymode") private var selectedlogdisplaymode: logsdisplaymode = .toolbar
     @AppStorage("loggerNoBS") private var loggerNoBS: Bool = true
@@ -257,7 +258,7 @@ struct SettingsView: View {
                 #endif
                 
                 Section(header: HeaderLabel(text: "Developer", icon: "gear")) {
-                    Toggle("Developer Mode", isOn: $laramgr.shared.developer)
+                    Toggle("Developer Mode", isOn: $mgr.developer)
                 }
             }
             .navigationTitle("Settings")
