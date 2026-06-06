@@ -1,3 +1,10 @@
+//
+//  ToolsView.swift
+//  lara
+//
+//  Created by ruter on 04.04.26.
+//
+
 import SwiftUI
 
 struct procentry: Identifiable, Hashable {
@@ -10,17 +17,14 @@ struct ToolsView: View {
     @ObservedObject private var mgr = laramgr.shared
     @State private var isaslr: Bool = aslrstate
     @State var showtoken: Bool = false
-    @AppStorage("lara.sbx.issuedToken")
-    private var token: String = ""
+    @AppStorage("lara.sbx.issuedToken") private var token: String = ""
     @State private var issueclass: tokenclass = .rw
     @State private var issuepath: String = "/"
     @State private var uid: uid_t = getuid()
     @State private var pid: pid_t = getpid()
     @State private var status: String?
     @State private var crashname: String = "SpringBoard"
-    @State private var pausedProcesses: Set<String> = []
-    @State private var proc_sbx: UInt64 = 0
-
+    
     private enum tokenclass: String, CaseIterable, Identifiable {
         case read = "com.apple.app-sandbox.read"
         case write = "com.apple.app-sandbox.write"
@@ -36,181 +40,229 @@ struct ToolsView: View {
             }
         }
     }
-
+    
     var body: some View {
-        NavigationStack {
-            List {
-
-                if !mgr.dsready {
-                    Section {
-                        Text("Kernel R/W is not ready. Run the exploit first.")
-                            .foregroundColor(.secondary)
-                    } header: {
-                        Text("Status")
-                    }
-                }
-
+        List {
+            if !mgr.dsready {
                 Section {
-                    HStack {
-                        Text("ASLR:")
-
-                        Spacer()
-
-                        Text(isaslr ? "enabled" : "disabled")
-                            .foregroundColor(isaslr ? .red : .green)
-                            .monospaced()
-
-                        Button {
-                            isaslr = aslrstate
-                        } label: {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                    }
-
-                    Button("Toggle ASLR") {
-                        toggleaslr()
-                        isaslr = aslrstate
-                    }
-                } header: {
-                    Text("ASLR")
-                }
-
-                Section {
-                    Button("Respring") {
-                        mgr.respring()
-                    }
-
-                    HStack {
-                        Text("ourproc:")
-                        Spacer()
-                        Text(
-                            mgr.dsready
-                            ? String(format: "0x%llx", ds_get_our_proc())
-                            : "N/A"
-                        )
-                        .monospaced()
+                    Text("Kernel R/W is not ready. Run the exploit first.")
                         .foregroundColor(.secondary)
-                    }
-
-                    HStack {
-                        Text("ourtask:")
-                        Spacer()
-                        Text(
-                            mgr.dsready
-                            ? String(format: "0x%llx", ds_get_our_task())
-                            : "N/A"
-                        )
-                        .monospaced()
-                        .foregroundColor(.secondary)
-                    }
-
-                    HStack {
-                        Text("UID:")
-                        Spacer()
-                        Text("\(uid)")
-                            .monospaced()
-                            .foregroundColor(.secondary)
-
-                        Button {
-                            uid = getuid()
-                        } label: {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                    }
-
-                    HStack {
-                        Text("PID:")
-                        Spacer()
-                        Text("\(pid)")
-                            .monospaced()
-                            .foregroundColor(.secondary)
-
-                        Button {
-                            pid = getpid()
-                        } label: {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                    }
                 } header: {
-                    Text("Process")
-                }
-
-                Section {
-                    HStack {
-                        Text("Process:")
-                        Spacer()
-                        TextField("e.g. SpringBoard", text: $crashname)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .monospaced()
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-
-                    Button("Crash") {
-                        crashname.withCString { _ = crashproc($0) }
-                    }
-                    .disabled(crashname.isEmpty)
-
-                    Button("Pause") {
-                        crashname.withCString { _ = proc_pause_resume($0, false) }
-                        pausedProcesses.insert(crashname)
-                    }
-                    .disabled(crashname.isEmpty || pausedProcesses.contains(crashname))
-
-                    Button("Resume") {
-                        crashname.withCString { _ = proc_pause_resume($0, true) }
-                        pausedProcesses.remove(crashname)
-                    }
-                    .disabled(crashname.isEmpty || !pausedProcesses.contains(crashname))
-
-                    Button("SBX Escape Helper") {
-                        crashname.withCString { cstr in
-                            proc_sbx = procbyname(cstr)
-                        }
-
-                        if proc_sbx == 0 {
-                            status = "Failed to get proc"
-                        }
-
-                        let errorcheck = sbx_escape(proc_sbx)
-                        status = errorcheck == 0 ? nil : "Failure!"
-                    }
-                    .disabled(crashname.isEmpty)
-                } header: {
-                    Text("Task Manager")
-                }
-
-                Section {
-                    Button("Pocket Poster Helper") {
-                        status = mgr.PPHelper()
-                            ? "Succeeded. Open Pocket Poster settings."
-                            : "Failed. Check logs."
-                    }
-                    .disabled(!mgr.sbxready)
-                }
-
-                Section {
-                    Text(status ?? "No status")
-                        .foregroundColor(.secondary)
+                    Text("Status")
                 }
             }
-            .navigationTitle("Tools")
 
-            .scrollContentBackground(.hidden)
-            .background(Color(.systemBackground))
-            .ignoresSafeArea(edges: .bottom)
+            Section {
+                HStack {
+                    Text("ASLR:")
+                    
+                    Spacer()
+                    
+                    Text(isaslr ? "enabled" : "disabled")
+                        .foregroundColor(isaslr ? Color.red : Color.green)
+                        .monospaced()
+                    
+                    Button {
+                        isaslr = aslrstate
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                
+                Button {
+                    toggleaslr()
+                    isaslr = aslrstate
+                } label: {
+                    Text("Toggle ASLR")
+                }
+            } header: {
+                Text("ASLR")
+            } footer: {
+                Text("Address Space Layout Randomization. Probably not useful for you.")
+            }
+            
+            Section {
+                Button("Respring") {
+                    mgr.respring()
+                }
+                
+                HStack {
+                    Text("ourproc: ")
+                    Spacer()
+                    Text(mgr.dsready ? String(format: "0x%llx", ds_get_our_proc()) : "N/A")
+                        .foregroundColor(.secondary)
+                        .monospaced()
+                }
+                
+                HStack {
+                    Text("ourtask: ")
+                    Spacer()
+                    Text(mgr.dsready ? String(format: "0x%llx", ds_get_our_task()) : "N/A")
+                        .foregroundColor(.secondary)
+                        .monospaced()
+                }
+                
+                HStack {
+                    Text("UID:")
 
-            .alert("Status", isPresented: .constant(status != nil)) {
+                    Spacer()
+
+                    Text("\(uid)")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(.secondary)
+
+                    Button {
+                        uid = getuid()
+                        print(uid)
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+
+                HStack {
+                    Text("PID:")
+                    Spacer()
+
+                    Text("\(pid)")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(.secondary)
+
+                    Button {
+                        pid = getpid()
+                        print(pid)
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+            } header: {
+                Text("Process")
+            }
+
+            Section {
+                HStack {
+                    Text("Process: ")
+                    Spacer()
+                    TextField("e.g. SpringBoard", text: $crashname)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .foregroundColor(.secondary)
+                        .monospaced()
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+
+                Button("Crash") {
+                    crashname.withCString { cstr in
+                        _ = crashproc(cstr)
+                    }
+                }
+                .disabled(crashname.isEmpty)
+            } header: {
+                Text("Crasher")
+            } footer: {
+                Text("Crashes the selected process")
+            }
+
+            Section {
+                Button {
+                    if mgr.PPHelper() {
+                        status = "Succeeded. Open the Pocket Poster app, open settings and tap Detect."
+                    } else {
+                        status = "Failed. Check logs."
+                    }
+                } label: {
+                    Text("Pocket Poster Helper")
+                }
+                .disabled(!mgr.sbxready)
+            } header: {
+                Text("Pocket Poster")
+            } footer: {
+                Text("Get the needed hashes for Pocket Poster without the need of a PC.")
+            }
+            
+            Section {
+                HStack {
+                    if showtoken {
+                        Text(mgr.sbxready ? "tkn" : "No Saved Token.")
+                            .foregroundColor(.secondary)
+                            .monospaced()
+                    } else {
+                        if !token.isEmpty {
+                            Text(token)
+                                .foregroundColor(.secondary)
+                                .monospaced()
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        } else {
+                            Text("No Saved Token.")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    Button {
+                        UIPasteboard.general.string = token.isEmpty ? nil : token
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                    }
+                    .disabled(token.isEmpty)
+                }
+                .contextMenu {
+                    if !token.isEmpty {
+                        Button {
+                            UIPasteboard.general.string = token
+                        } label: {
+                            Label("Copy", systemImage: "doc.on.doc")
+                        }
+                    }
+                }
+
+                HStack {
+                    Text("Class:")
+                    Spacer()
+
+                    Picker(" ", selection: $issueclass) {
+                        ForEach(tokenclass.allCases) { tokenClass in
+                            Text(tokenClass.label).tag(tokenClass)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                HStack {
+                    Text("Path:")
+                    Spacer()
+                    
+                    TextField("/", text: $issuepath)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .foregroundColor(.secondary)
+                        .monospaced()
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+
+                Button {
+                    token = mgr.sbxissuetoken(extClass: issueclass.rawValue, path: issuepath) ?? ""
+                } label: {
+                    Text("Issue Token")
+                }
+                .disabled(!mgr.sbxready)
+            } header: {
+                Text("Sandbox")
+            }
+        }
+        .navigationTitle("Tools")
+        .alert("Status", isPresented: .constant(status != nil)) {
                 Button("OK") { status = nil }
             } message: {
                 Text(status ?? "")
             }
-
-            .onAppear {
-                if mgr.dsready {
-                    getaslrstate()
-                    isaslr = aslrstate
-                }
+        .onAppear {
+            if mgr.dsready {
+                getaslrstate()
+                isaslr = aslrstate
             }
         }
     }
