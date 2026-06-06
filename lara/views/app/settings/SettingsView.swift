@@ -257,7 +257,7 @@ struct SettingsView: View {
                 #endif
                 
                 Section(header: HeaderLabel(text: "Developer", icon: "gear")) {
-                    Toggle("Developer Mode", isOn: $mgr.shared.developer)
+                    Toggle("Developer Mode", isOn: $mgr.developer)
                 }
             }
             .navigationTitle("Settings")
