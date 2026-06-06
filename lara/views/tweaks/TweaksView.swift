@@ -61,8 +61,6 @@ struct TweaksView: View {
                         .disabled(!mgr.vfsready || !mgr.sbxready)
                     NavigationLink("Screen Time", destination: ScreenTimeView(mgr: mgr))
                         .disabled(!mgr.vfsready || !mgr.sbxready)
-                    NavigationLink("Clean Cache", destination: CacheView())
-                        .disabled(!mgr.vfsready || !mgr.sbxready)
                 }
                 
                 Section(header: HeaderLabel(text: "Broken", icon: "exclamationmark.triangle.fill")) {
