@@ -411,5 +411,6 @@ struct ToolsView: View {
                 isaslr = aslrstate
             }
         }
+        .ignoresSafeArea
     }
 }
