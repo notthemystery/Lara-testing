@@ -88,6 +88,7 @@ final class laramgr: ObservableObject {
     @Published var rcready: Bool = false
     @Published var rcfailed: Bool = false
     @Published var showrespring: Bool = false
+    @Published var developer: Bool = false
     
     @Published var showLogs: Bool = false
     
