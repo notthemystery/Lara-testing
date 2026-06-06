@@ -31,7 +31,6 @@ struct lara: App {
         weonadebugbuild_pjbweouttahereexclamationmark = true
         #endif
         
-        // fix file picker
         let fixMethod = class_getInstanceMethod(UIDocumentPickerViewController.self, #selector(UIDocumentPickerViewController.fix_init(forOpeningContentTypes:asCopy:)))!
         let origMethod = class_getInstanceMethod(UIDocumentPickerViewController.self, #selector(UIDocumentPickerViewController.init(forOpeningContentTypes:asCopy:)))!
         method_exchangeImplementations(origMethod, fixMethod)
@@ -45,39 +44,40 @@ struct lara: App {
     
     var body: some Scene {
         WindowGroup {
-            TabView(selection: $selectedtab) {
-                ContentView()
-                    .tabItem {
-                        Image(systemName: "wrench.and.screwdriver.fill")
-                    }
-                    .tag(taboptions.applying)
-                
-                // this has gotta fucking go
-                TweaksView(mgr: mgr)
-                    .tabItem {
-                        Image(systemName: "ant.fill")
-                    }
-                    .tag(taboptions.tweaks)
-                
-                
-                // i'm gonna strangle you root (the weight of your actions will crush you)
-                if showfmintabs {
-                    SantanderView(startPath: "/")
+            ZStack {
+                TabView(selection: $selectedtab) {
+                    
+                    ContentView()
                         .tabItem {
-                            Image(systemName: "folder.fill")
+                            Image(systemName: "wrench.and.screwdriver.fill")
                         }
-                        .tag(taboptions.files)
-                }
-                
-                // this too
-                if logsdisplaymode == .tabs {
-                    LogsView(logger: globallogger)
+                        .tag(taboptions.applying)
+                    
+                    TweaksView(mgr: mgr)
                         .tabItem {
-                            Image(systemName: "terminal")
+                            Image(systemName: "ant.fill")
                         }
-                        .tag(taboptions.logs)
+                        .tag(taboptions.tweaks)
+                    
+                    if showfmintabs {
+                        SantanderView(startPath: "/")
+                            .tabItem {
+                                Image(systemName: "folder.fill")
+                            }
+                            .tag(taboptions.files)
+                    }
+                    
+                    if logsdisplaymode == .tabs {
+                        LogsView(logger: globallogger)
+                            .tabItem {
+                                Image(systemName: "terminal")
+                            }
+                            .tag(taboptions.logs)
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea()
             .environmentObject(mgr)
             .overlay {
                 if mgr.showrespring {
@@ -100,11 +100,14 @@ struct lara: App {
                     init_offsets()
                     offsets_init()
                     iconthememgr.startPendingFixupIfPossible()
-                    // beautiful name root
-                    // thanks
                     mgr.hasOffsets = emergencyfixfunctiontobereplacedlateronquestionmark()
                 } else {
-                    Alertinator.shared.alert(title: "This device is not supported!", body: "We apologize, but this device is currently not supported by Lara. Possible reasons: \n- You are on an unsupported iOS version (Supported: iOS 16.0 - iOS 18.7.1, iOS 26.0 - iOS 26.0.1) \n- Your device has MIE (A19+ or M5+) \n- A debugger is attached.", actionLabel: "Exit App", action: { exitinator() })
+                    Alertinator.shared.alert(
+                        title: "This device is not supported!",
+                        body: "We apologize, but this device is currently not supported by Lara.",
+                        actionLabel: "Exit App",
+                        action: { exitinator() }
+                    )
                 }
             }
             .onChange(of: scenephase, perform: handleScenePhase)
@@ -163,5 +166,5 @@ extension UIDocumentPickerViewController {
     }
 }
 
-// make strings compatiable with errors
+// make strings compatible with errors
 extension String: @retroactive Error {}
