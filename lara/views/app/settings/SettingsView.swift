@@ -8,6 +8,7 @@
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+import Combine
 
 enum method: String, CaseIterable {
     case vfs = "VFS"
@@ -256,7 +257,7 @@ struct SettingsView: View {
                 #endif
                 
                 Section(header: HeaderLabel(text: "Developer", icon: "gear")) {
-                    Toggle("Enable Developer Mode", isOn: $developer)
+                    Toggle("Developer Mode", isOn: $laramgr.shared.developer)
                 }
             }
             .navigationTitle("Settings")
