@@ -58,14 +58,12 @@ struct TweaksView: View {
                     NavigationLink("Custom Overwrite", destination: CustomView(mgr: mgr))
                         .disabled(!mgr.vfsready)
                     NavigationLink("OTA Updates", destination: OTAView(mgr: mgr))
-                        .disabled(!mgr.vfsready || !mgr.sbxready)
                     NavigationLink("Screen Time", destination: ScreenTimeView(mgr: mgr))
-                        .disabled(!mgr.vfsready || !mgr.sbxready)
                 }
                 
                 Section(header: HeaderLabel(text: "Broken", icon: "exclamationmark.triangle.fill")) {
                     NavigationLink("DarkBoard", destination: DarkBoardView())
-                        .disabled(false)
+                        .disabled(true)
                 }
                 
                 NavigationLink("Extra Tools", destination: ToolsView())
