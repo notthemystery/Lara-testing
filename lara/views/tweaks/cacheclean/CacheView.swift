@@ -350,6 +350,7 @@ struct CacheView: View {
             .onAppear {
                 mgr.startScan()
             }
+            .ignoresSafeArea()
         }
     }
 }
