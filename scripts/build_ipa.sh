@@ -8,7 +8,7 @@ echo "Build Started!"
 echo
 
 xcodebuild \
-  -project lara.xcodeproj \
+  -project lara1.xcodeproj \
   -scheme lara \
   -configuration Debug \
   -sdk iphoneos \
