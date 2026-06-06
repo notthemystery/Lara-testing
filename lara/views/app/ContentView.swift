@@ -51,7 +51,6 @@ struct ContentView: View {
                 SettingsView()
             }
         }
-        .ignoresSafeArea()
     }
     
     private var AlertsSection: some View {
@@ -139,6 +138,7 @@ struct ContentView: View {
                     }
                 }
                 
+                // initalize vfs
                 if selectedmethod == .vfs {
                     LabeledContent(content: {
                         if mgr.vfsready {
@@ -159,6 +159,7 @@ struct ContentView: View {
                     }
                 }
                 
+                // escape sandbox
                 if selectedmethod == .sbx {
                     LabeledContent(content: {
                         if mgr.sbxready {
@@ -192,6 +193,7 @@ struct ContentView: View {
         Group {
             #if !DISABLE_REMOTECALL
             Section {
+                // init remotecall
                 LabeledContent(content: {
                     if mgr.rcready {
                         Image(systemName: "checkmark.circle")
@@ -218,8 +220,38 @@ struct ContentView: View {
                     })
                     .disabled(!mgr.dsready || isdebugged() || mgr.rcrunning || mgr.rcready)
                 }
+                
+                // destroy remotecall
+                if mgr.rcready {
+                    Button("Destroy Remotecall", action: {
+                        mgr.rcdestroy()
+                    })
+                }
             } header: {
                 HeaderLabel(text: "RemoteCall", icon: "syringe")
+            } footer: {
+                VStack(alignment: .leading, spacing: 4) {
+                    if let error = mgr.rcLastError ?? mgr.sbProc?.lastError {
+                        Text("Error: \(error)")
+                            .foregroundColor(.red)
+                    }
+                    if RemoteCall.isLiveContainerRuntime() && !RemoteCall.isLiveProcessRuntime() {
+                        Text("RemoteCall needs a PAC-enabled LiveContainer launch context. The main exploit may still work when RemoteCall is unavailable.")
+                    }
+                    if isdebugged() {
+                        Text("Not available when a debugger is attached.")
+                    }
+                    Text("RemoteCall is relatively unstable and may not work properly.")
+                    if isIOS16() {
+                        Text("iOS 16 tip: Open Control Center after tapping Initialize RemoteCall. This significantly improves the success rate and speed.")
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                        Text("If initialization fails after about 2 minutes, respring, relaunch Lara, and try again.")
+                            .fontWeight(.semibold)
+                            .foregroundColor(.red)
+                    }
+                }
+                .font(.footnote)
             }
             #endif
         }
