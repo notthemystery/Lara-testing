@@ -16,45 +16,58 @@ static useconds_t gSettleUS = 50000;
 #define R_OBJC_CACHE_CAP 192
 #define R_OBJC_CACHE_NAME_MAX 96
 
-static inline RemoteCall *R(void) {
-    // If you already store a global RemoteCall instance, return it here
-    extern RemoteCall *gRemoteCall;
-    return gRemoteCall;
-}
+extern RemoteCall *gRemoteCall; // you MUST have this somewhere
 
-static inline uint64_t R_CALL(int timeout, const char *name,
-                              uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                              uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+#define R() (gRemoteCall)
+
+// ---- FIX: do_remote_call_stable ----
+static inline uint64_t do_remote_call_stable(int timeout,
+                                              const char *name,
+                                              uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                                              uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
 {
     return [R() doRemoteCallStableWithTimeout:timeout
-                                  functionName:(char *)name
-                              functionPointer:NULL
-                                        args:(uint64_t[]){a0,a1,a2,a3,a4,a5,a6,a7}
-                                     argCount:8];
+                                 functionName:(char *)name
+                             functionPointer:NULL
+                                       args:(uint64_t[]){a0,a1,a2,a3,a4,a5,a6,a7}
+                                    argCount:8];
 }
 
-static inline uint64_t R_READ64(uint64_t addr) {
-    return [R() remoteRead64From:addr];
+// ---- FIX: remote_writeStr ----
+static inline void remote_writeStr(uint64_t dst, const char *str)
+{
+    if (!str) return;
+    [R() remote_write:dst string:str];
 }
 
-static inline BOOL R_WRITE(RemoteCall *proc, uint64_t dst, const void *src, uint64_t size) {
+// ---- FIX: remote_call_current_pid ----
+static inline int remote_call_current_pid(void)
+{
+    return R().pid;
+}
+
+// ---- FIX: remote_write64 ----
+static inline bool remote_write64(uint64_t dst, uint64_t val)
+{
+    return [R() remote_write64:dst value:val];
+}
+
+// ---- FIX: remote_write ----
+static inline bool remote_write(RemoteCall *proc, uint64_t dst, const void *src, uint64_t size)
+{
     return [proc remote_write:dst from:src size:size];
 }
 
-static inline BOOL R_WRITE64(RemoteCall *proc, uint64_t dst, uint64_t val) {
-    return [proc remote_write64:dst value:val];
+// ---- FIX: remote_read ----
+static inline bool remote_read(uint64_t src, void *dst, uint64_t size)
+{
+    return [R() remoteRead:R() to:dst size:size]; // fallback-safe wrapper style
 }
 
-static inline uint64_t R_SEL(const char *name) {
-    return remote_sel(R(), name);
-}
-
-static inline uint64_t R_CLASS(const char *name) {
-    return remote_getClass(R(), name);
-}
-
-static inline uint64_t R_STR(const char *s) {
-    return remote_alloc_str(R(), s);
+// ---- FIX: remote_read64 ----
+static inline uint64_t remote_read64(uint64_t src)
+{
+    return [R() remoteRead64From:src];
 }
 
 typedef struct {
