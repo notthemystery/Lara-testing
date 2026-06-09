@@ -11,6 +11,9 @@
 #import <stddef.h>
 #ifdef __OBJC__
 #import "../../../../kexploit/TaskRop/RemoteCall.h"
+@class RemoteCallSession;
+#else
+typedef struct RemoteCallSession RemoteCallSession;
 #endif
 
 #define R_TIMEOUT 5
