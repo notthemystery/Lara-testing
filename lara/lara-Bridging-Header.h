@@ -20,6 +20,7 @@
 #import "persistence.h"
 #import "ota.h"
 #import "screentime.h"
+#import "themer.h"
 
 #import <zlib.h>
 
