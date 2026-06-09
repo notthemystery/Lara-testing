@@ -8,7 +8,7 @@
 #include <stdarg.h>
 #include <pthread.h>
 #include <time.h>
-#include "LogTextView.h
+#include "LogTextView.h"
 
 static BOOL g_verbose = NO;
 
