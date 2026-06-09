@@ -286,7 +286,7 @@ static void themer_read_class_name(uint64_t obj, char *out, size_t outLen)
     if (!name) return;
     uint64_t heap = r_dlsym_call(R_TIMEOUT, "strdup", name, 0, 0, 0, 0, 0, 0, 0);
     if (!heap) return;
-    if (remote_read(heap, out, outLen - 1)) out[outLen - 1] = '\0';
+    if ([gRemoteCall remoteRead:heap to:out size:outLen - 1]) out[outLen - 1] = '\0';
     r_free(heap);
 }
 
@@ -301,7 +301,7 @@ static void themer_read_class_object_name(uint64_t cls, char *out, size_t outLen
     uint64_t heap = r_dlsym_call(R_TIMEOUT, "strdup",
                                  name, 0, 0, 0, 0, 0, 0, 0);
     if (!heap) return;
-    if (remote_read(heap, out, outLen - 1)) out[outLen - 1] = '\0';
+    if ([gRemoteCall remoteRead:heap to:out size:outLen - 1]) out[outLen - 1] = '\0';
     r_free(heap);
 }
 
@@ -652,7 +652,7 @@ static uint64_t themer_build_remote_uiimage_from_data(NSData *bytes, const char 
                (unsigned long)bytes.length, label ?: "?");
         return 0;
     }
-    if (!remote_write(remoteBuf, bytes.bytes, bytes.length)) {
+    if (![gRemoteCall remote_write:remoteBuf from:bytes.bytes size:bytes.length]) {
         printf("[THEMER] remote_write failed buf=0x%llx size=%lu label=%s\n",
                (unsigned long long)remoteBuf, (unsigned long)bytes.length, label ?: "?");
         r_free(remoteBuf);
