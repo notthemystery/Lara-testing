@@ -16,6 +16,45 @@ static useconds_t gSettleUS = 50000;
 #define R_OBJC_CACHE_CAP 192
 #define R_OBJC_CACHE_NAME_MAX 96
 
+static inline uint64_t do_remote_call_stable(RemoteCall *proc,
+                                              int timeout,
+                                              const char *name,
+                                              uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                                              uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+{
+    uint64_t args[8] = { a0,a1,a2,a3,a4,a5,a6,a7 };
+    return [proc doRemoteCallStableWithTimeout:timeout
+                                  functionName:(char *)name
+                               functionPointer:NULL
+                                         args:args
+                                     argCount:8];
+}
+
+static inline uint64_t remote_read64(RemoteCall *proc, uint64_t src)
+{
+    return [proc remoteRead64From:src];
+}
+
+static inline bool remote_read(RemoteCall *proc, uint64_t src, void *dst, uint64_t size)
+{
+    return [proc remoteRead:src to:dst size:size];
+}
+
+static inline bool remote_write(RemoteCall *proc, uint64_t dst, const void *src, uint64_t size)
+{
+    return [proc remote_write:dst from:src size:size];
+}
+
+static inline bool remote_write64(RemoteCall *proc, uint64_t dst, uint64_t val)
+{
+    return [proc remote_write64:dst value:val];
+}
+
+static inline int remote_call_current_pid(RemoteCall *proc)
+{
+    return proc.pid;
+}
+
 typedef struct {
     int pid;
     char name[R_OBJC_CACHE_NAME_MAX];
