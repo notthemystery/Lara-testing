@@ -8,9 +8,6 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-@interface LogTextView : UITextView
-@end
-
 void log_init(void);
 void log_write(const char *msg);
 void log_write_raw_no_timestamp(const char *msg);
