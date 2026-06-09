@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+import Combine
 
 final class SBLLogger: ObservableObject {
     static let shared = SBLLogger()
