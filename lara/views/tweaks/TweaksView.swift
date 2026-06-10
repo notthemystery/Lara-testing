@@ -66,10 +66,6 @@ struct TweaksView: View {
                     NavigationLink("DarkBoard", destination: DarkBoardView())
                         .disabled(!mgr.developer)
                 }
-                Section(header: HeaderLabel(text: "In Progress (WIP)", icon: "exclamationmark.triangle.fill")) {
-                    NavigationLink("DarkBoardV2", destination: DBV2View())
-                        .disabled(!mgr.developer)
-                }
                 
                 NavigationLink("Extra Tools", destination: ToolsView())
             }
