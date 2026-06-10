@@ -25,6 +25,7 @@ struct ToolsView: View {
     @State private var status: String?
     @State private var crashname: String = "SpringBoard"
     @State private var pausedProcesses: Set<String> = []
+    @State private var proc_sbx: UInt64 = 0
     
     private enum tokenclass: String, CaseIterable, Identifiable {
         case read = "com.apple.app-sandbox.read"
@@ -157,26 +158,37 @@ struct ToolsView: View {
                     }
                 }
                 .disabled(crashname.isEmpty)
-                
                 Button("Pause") {
-                    crashname.withCString { cstr in
-                         _ = proc_pause_resume(cstr, false)
+                    crashname.withCString { _ = proc_pause_resume($0, false) }
                     pausedProcesses.insert(crashname)
-                    }
                 }
-                .disabled(crashname.isEmpty || pausedProcess.contains(crashname))
+                .disabled(crashname.isEmpty || pausedProcesses.contains(crashname))
 
                 Button("Resume") {
-                    crashname.withCString { cstr in
-                         _ = proc_pause_resume(cstr, true)
-                    }
+                    crashname.withCString { _ = proc_pause_resume($0, true) }
+                    pausedProcesses.remove(crashname)
                 }
-                .disabled(crashname.isEmpty || !pausedProcess.contains(crashname))
+                .disabled(crashname.isEmpty || !pausedProcesses.contains(crashname))
                 
+                Button("SBX Escape Helper") {
+                    crashname.withCString { cstr in
+                        proc_sbx = procbyname(cstr)
+                    }
+
+                    if proc_sbx == 0 {
+                            status = "Failed to get proc"
+                            return
+                        }
+                    
+                        let errorcheck = sbx_escape(proc_sbx)
+                        status = errorcheck == 0 ? nil : "Failure"
+                    }
+                    .disabled(crashname.isEmpty)
+
             } header: {
                 Text("Task Manager")
             } footer: {
-                Text("Pause, Resume or Crash a Selected Process")
+                Text("Manages The Selected Process")
             }
 
             Section {
