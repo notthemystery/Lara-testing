@@ -6,6 +6,18 @@
 	<array>
 		<string>audio</string>
 	</array>
+    <key>CFBundleIdentifier</key>
+        <string>com.roooot.lara</string>
+    <key>CFBundleExecutable</key>
+        <string>lara</string>
+    <key>CFBundleName</key>
+        <string>Lara</string>
+    <key>CFBundlePackageType</key>
+        <string>APPL</string>
+    <key>CFBundleVersion</key>
+        <string>2</string>
+    <key>CFBundleShortVersionString</key>
+        <string>0.2</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 </dict>

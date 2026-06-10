@@ -91,6 +91,7 @@ Important Notes:
 - OTA Update Disabler
 - Screen Time Disabler 
 - App Decrypt
+- Clean Cache
 
 
 ### Coming Soon

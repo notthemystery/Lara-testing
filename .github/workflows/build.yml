@@ -19,6 +19,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: setup xcodegen
+        run: brew install xcodegen
+
+      - name: make project
+        run: xcodegen generate
+
       - name: setup xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -41,7 +47,7 @@ jobs:
         with:
           name: lara-ipa
           path: |
-            build/lara.ipa
+            ./lara.ipa
             build/xcodebuild.log
 
       - name: upload release ipa
@@ -49,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-ipa
-          path: build/lara.ipa
+          path: ./lara.ipa
 
 
   release:

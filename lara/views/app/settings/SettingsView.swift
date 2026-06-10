@@ -8,6 +8,7 @@
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+import Combine
 
 enum method: String, CaseIterable {
     case vfs = "VFS"
@@ -254,6 +255,10 @@ struct SettingsView: View {
                     Toggle("Allow >10 dock icons", isOn: $rcDockUnlimited)
                 }
                 #endif
+                
+                Section(header: HeaderLabel(text: "Developer", icon: "gear")) {
+                    Toggle("Developer Mode", isOn: $mgr.developer)
+                }
             }
             .navigationTitle("Settings")
             .fileImporter(isPresented: $showkcacheimport, allowedContentTypes: [.data], allowsMultipleSelection: false) { result in
