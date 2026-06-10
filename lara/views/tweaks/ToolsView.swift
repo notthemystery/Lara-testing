@@ -24,6 +24,7 @@ struct ToolsView: View {
     @State private var pid: pid_t = getpid()
     @State private var status: String?
     @State private var crashname: String = "SpringBoard"
+    @State private var pausedProcesses: Set<String> = []
     
     private enum tokenclass: String, CaseIterable, Identifiable {
         case read = "com.apple.app-sandbox.read"
@@ -158,36 +159,24 @@ struct ToolsView: View {
                 .disabled(crashname.isEmpty)
                 
                 Button("Pause") {
-                    crashname.withCString { _ = proc_pause_resume($0, false) }
+                    crashname.withCString { cstr in
+                         _ = proc_pause_resume(cstr, false)
                     pausedProcesses.insert(crashname)
+                    }
                 }
-                .disabled(crashname.isEmpty || pausedProcesses.contains(crashname))
+                .disabled(crashname.isEmpty || pausedProcess.contains(crashname))
 
                 Button("Resume") {
-                    crashname.withCString { _ = proc_pause_resume($0, true) }
-                    pausedProcesses.remove(crashname)
-                }
-                .disabled(crashname.isEmpty || !pausedProcesses.contains(crashname))
-                
-                Button("SBX Escape Helper") {
                     crashname.withCString { cstr in
-                        proc_sbx = procbyname(cstr)
+                         _ = proc_pause_resume(cstr, true)
                     }
-
-                    if proc_sbx == 0 {
-                            status = "Failed to get proc"
-                            return
-                    }
-                    
-                    let errorcheck = sbx_escape(proc_sbx)
-                    status = errorcheck == 0 ? nil : "Failure"
                 }
-                .disabled(crashname.isEmpty)
-
+                .disabled(crashname.isEmpty || !pausedProcess.contains(crashname))
+                
             } header: {
                 Text("Task Manager")
             } footer: {
-                Text("Manages a Selected Process")
+                Text("Pause, Resume or Crash a Selected Process")
             }
 
             Section {
