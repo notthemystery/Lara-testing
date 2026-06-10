@@ -25,6 +25,9 @@
   <a href="https://github.com/rooootdev/lara/actions">
     <img src="https://img.shields.io/github/actions/workflow/status/rooootdev/lara/build.yml?branch=main&style=flat&logo=github" alt="GitHub Actions">
   </a>
+  <a href="https://laraapp.netlify.app">
+    <img src="https://img.shields.io/badge/Website-blue" alt="website">
+  </a>
 </p>
 
 <p align="center">
@@ -91,7 +94,7 @@ Important Notes:
 - OTA Update Disabler
 - Screen Time Disabler 
 - App Decrypt
-
+- Clean Cache
 
 ### Coming Soon
 - FTP Server
