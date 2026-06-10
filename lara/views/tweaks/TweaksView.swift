@@ -59,6 +59,7 @@ struct TweaksView: View {
                         .disabled(!mgr.vfsready)
                     NavigationLink("OTA Updates", destination: OTAView(mgr: mgr))
                     NavigationLink("Screen Time", destination: ScreenTimeView(mgr: mgr))
+                    NavigationLink("Clean Cache", destination: CacheView())
                 }
                 
                 Section(header: HeaderLabel(text: "Broken", icon: "exclamationmark.triangle.fill")) {
