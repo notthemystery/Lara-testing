@@ -179,6 +179,9 @@ struct ContentView: View {
                         .disabled(!mgr.dsready || mgr.sbxready || mgr.sbxrunning || isdebugged())
                     }
                 }
+                Button("Roooot", action: {
+                    roooot();
+                })
             }
         } header: {
             HeaderLabel(text: "Kernel Read Write", icon: "externaldrive")
