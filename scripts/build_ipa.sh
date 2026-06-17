@@ -18,7 +18,7 @@ xcodebuild \
   CODE_SIGN_IDENTITY="" \
   CODE_SIGN_ENTITLEMENTS="Config/lara.entitlements" \
   archive \
-  -archivePath "$PWD/build/lara.xcarchive"
+  -archivePath "$PWD/build/lara.xcarchive" 2>&1 | xcpretty
 
 APP_PATH="$PWD/build/lara.xcarchive/Products/Applications/lara.app"
 if [ ! -d "$APP_PATH" ]; then
@@ -36,6 +36,8 @@ if ! command -v ldid >/dev/null 2>&1; then
   exit 1
 fi
 ldid -SConfig/lara.entitlements "$PWD/build/Payload/lara.app/lara"
+mkdir "$PWD/build/Payload/lara.app/Sounds"
+mv "$PWD/lara/Sounds/*" "$PWD/build/Payload/lara.app/Sounds/"
 (cd "$PWD/build" && /usr/bin/zip -qry lara.ipa Payload)
 
 echo
