@@ -11,8 +11,18 @@ struct RecordView: View {
     private let target1 = "/var/mobile/Library/CallServices/Greetings/default/StartDisclosurewithTone.m4a"
     private let target2 = "/var/mobile/Library/CallServices/Greetings/default/StopDisclosure.caf"
 
+    // MARK: - Remote Download URLs
+    private let remote1 = URL(string:
+        "https://github.com/YangJiiii/Disable-Call-Recording-BookRestore-/raw/refs/heads/main/Sounds/StartDisclosureWithTone.m4a"
+    )!
+
+    private let remote2 = URL(string:
+        "https://github.com/YangJiiii/Disable-Call-Recording-BookRestore-/raw/refs/heads/main/Sounds/StopDisclosure.caf"
+    )!
+
     var body: some View {
         List {
+
             Section(header: HeaderLabel(text: "Status", icon: "info.circle")) {
                 HStack {
                     Text("Status")
@@ -25,65 +35,46 @@ struct RecordView: View {
             }
 
             Section(header: HeaderLabel(text: "Actions", icon: "hammer")) {
-                
-                    Button("Disable") {
-                        disableRecordNotify()
-                    }
-                    .disabled(disabled || isOverwriting)
 
-                    
+                Button("Disable") {
+                    disableRecordNotify()
+                }
+                .disabled(disabled || isOverwriting)
 
-                    Button("Enable") {
-                        enableRecordNotify()
-                    }
-                    .disabled(!disabled || isOverwriting)
+                Button("Enable") {
+                    enableRecordNotify()
+                }
+                .disabled(!disabled || isOverwriting)
+            }
+
+            // MARK: - NEW DOWNLOAD SECTION
+            Section(header: HeaderLabel(text: "Download", icon: "arrow.down.circle")) {
+
+                Button("Download Sounds") {
+                    downloadSounds()
+                }
+                .disabled(isOverwriting)
             }
         }
         .navigationTitle("Call Record Notification")
         .onAppear {
+            downloadIfNeeded()
             check()
         }
     }
 
-    // MARK: - Backup Paths
+    // MARK: - Documents Paths
 
     private var documents: URL {
-        FileManager.default.urls(
-            for: .documentDirectory,
-            in: .userDomainMask
-        )[0]
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
 
-    private var backupFolder: URL {
-        documents.appendingPathComponent("Backup")
+    private var local1: URL {
+        documents.appendingPathComponent("StartDisclosurewithTone.m4a")
     }
 
-    private var backup1: URL {
-        backupFolder.appendingPathComponent(
-            "StartDisclosurewithTone.m4a"
-        )
-    }
-
-    private var backup2: URL {
-        backupFolder.appendingPathComponent(
-            "StopDisclosure.caf"
-        )
-    }
-
-    // MARK: - Bundled Sounds
-
-    private var source1: String? {
-        Bundle.main.path(
-            forResource: "StartDisclosurewithTone",
-            ofType: "m4a"
-        )
-    }
-
-    private var source2: String? {
-        Bundle.main.path(
-            forResource: "StopDisclosure",
-            ofType: "caf"
-        )
+    private var local2: URL {
+        documents.appendingPathComponent("StopDisclosure.caf")
     }
 
     // MARK: - Status Check
@@ -99,8 +90,72 @@ struct RecordView: View {
             return
         }
 
-        disabled = size1.intValue < 2048 ||
-                   size2.intValue < 2048
+        disabled = size1.intValue < 2048 || size2.intValue < 2048
+    }
+
+    // MARK: - DOWNLOAD SYSTEM
+
+    private func downloadIfNeeded() {
+        let fm = FileManager.default
+
+        if !fm.fileExists(atPath: local1.path) {
+            download(remote1, to: local1)
+        }
+
+        if !fm.fileExists(atPath: local2.path) {
+            download(remote2, to: local2)
+        }
+    }
+
+    private func downloadSounds() {
+        isOverwriting = true
+
+        let group = DispatchGroup()
+
+        group.enter()
+        download(remote1, to: local1) { group.leave() }
+
+        group.enter()
+        download(remote2, to: local2) { group.leave() }
+
+        group.notify(queue: .main) {
+            self.isOverwriting = false
+            self.mgr.logmsg("Sounds downloaded")
+            self.check()
+        }
+    }
+
+    private func download(_ url: URL, to dest: URL, completion: (() -> Void)? = nil) {
+        URLSession.shared.downloadTask(with: url) { tempURL, _, error in
+
+            defer { completion?() }
+
+            guard let tempURL = tempURL, error == nil else {
+                DispatchQueue.main.async {
+                    self.mgr.logmsg("Download failed: \(url.lastPathComponent)")
+                }
+                return
+            }
+
+            do {
+                let fm = FileManager.default
+
+                if fm.fileExists(atPath: dest.path) {
+                    try fm.removeItem(at: dest)
+                }
+
+                try fm.moveItem(at: tempURL, to: dest)
+
+                DispatchQueue.main.async {
+                    self.mgr.logmsg("Downloaded: \(dest.lastPathComponent)")
+                }
+
+            } catch {
+                DispatchQueue.main.async {
+                    self.mgr.logmsg("File error: \(error.localizedDescription)")
+                }
+            }
+        }.resume()
     }
 
     // MARK: - Backup Creation
@@ -108,97 +163,65 @@ struct RecordView: View {
     private func createBackupsIfNeeded() {
         let fm = FileManager.default
 
+        let backupFolder = documents.appendingPathComponent("Backup")
+
+        let backup1 = backupFolder.appendingPathComponent("StartDisclosurewithTone.m4a")
+        let backup2 = backupFolder.appendingPathComponent("StopDisclosure.caf")
+
         if !fm.fileExists(atPath: backupFolder.path) {
-            try? fm.createDirectory(
-                at: backupFolder,
-                withIntermediateDirectories: true
-            )
+            try? fm.createDirectory(at: backupFolder, withIntermediateDirectories: true)
         }
 
         if !fm.fileExists(atPath: backup1.path) {
-            try? fm.copyItem(
-                at: URL(fileURLWithPath: target1),
-                to: backup1
-            )
+            try? fm.copyItem(at: URL(fileURLWithPath: target1), to: backup1)
         }
 
         if !fm.fileExists(atPath: backup2.path) {
-            try? fm.copyItem(
-                at: URL(fileURLWithPath: target2),
-                to: backup2
-            )
+            try? fm.copyItem(at: URL(fileURLWithPath: target2), to: backup2)
         }
     }
 
-    // MARK: - Overwrite Helper
+    // MARK: - Overwrite
 
     @discardableResult
-    private func overwrite(
-        target: String,
-        source: String
-    ) -> Bool {
+    private func overwrite(target: String, source: String) -> Bool {
+        let ok = mgr.vfsoverwritefromlocalpath(target: target, source: source)
 
-        let ok = mgr.vfsoverwritefromlocalpath(
-            target: target,
-            source: source
-        )
-
-        if ok {
-            mgr.logmsg("overwrite ok: \(target)")
-        } else {
-            mgr.logmsg("overwrite failed: \(target)")
-        }
-
+        mgr.logmsg(ok ? "overwrite ok: \(target)" : "overwrite failed: \(target)")
         return ok
     }
 
-    // MARK: - Disable Notification
+    // MARK: - Disable
 
     private func disableRecordNotify() {
-        guard
-            let source1,
-            let source2
-        else {
-            mgr.logmsg("Bundled sound files missing")
-            return
-        }
-
         isOverwriting = true
 
-        DispatchQueue.global(
-            qos: .userInitiated
-        ).async {
+        DispatchQueue.global(qos: .userInitiated).async {
 
             self.createBackupsIfNeeded()
 
-            let ok1 = self.overwrite(
-                target: self.target1,
-                source: source1
-            )
-
-            let ok2 = self.overwrite(
-                target: self.target2,
-                source: source2
-            )
+            let ok1 = self.overwrite(target: self.target1, source: self.local1.path)
+            let ok2 = self.overwrite(target: self.target2, source: self.local2.path)
 
             DispatchQueue.main.async {
                 self.isOverwriting = false
+                self.check()
 
                 if !(ok1 && ok2) {
-                    self.mgr.logmsg(
-                        "Failed disabling notification"
-                    )
+                    self.mgr.logmsg("Failed disabling notification")
                 }
-
-                self.check()
             }
         }
     }
 
-    // MARK: - Restore Notification
+    // MARK: - Enable
 
     private func enableRecordNotify() {
         let fm = FileManager.default
+
+        let backupFolder = documents.appendingPathComponent("Backup")
+        let backup1 = backupFolder.appendingPathComponent("StartDisclosurewithTone.m4a")
+        let backup2 = backupFolder.appendingPathComponent("StopDisclosure.caf")
 
         guard
             fm.fileExists(atPath: backup1.path),
@@ -210,30 +233,18 @@ struct RecordView: View {
 
         isOverwriting = true
 
-        DispatchQueue.global(
-            qos: .userInitiated
-        ).async {
+        DispatchQueue.global(qos: .userInitiated).async {
 
-            let ok1 = self.overwrite(
-                target: self.target1,
-                source: self.backup1.path
-            )
-
-            let ok2 = self.overwrite(
-                target: self.target2,
-                source: self.backup2.path
-            )
+            let ok1 = self.overwrite(target: self.target1, source: backup1.path)
+            let ok2 = self.overwrite(target: self.target2, source: backup2.path)
 
             DispatchQueue.main.async {
                 self.isOverwriting = false
+                self.check()
 
                 if !(ok1 && ok2) {
-                    self.mgr.logmsg(
-                        "Failed restoring notification"
-                    )
+                    self.mgr.logmsg("Failed restoring notification")
                 }
-
-                self.check()
             }
         }
     }
