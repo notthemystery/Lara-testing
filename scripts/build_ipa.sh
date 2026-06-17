@@ -36,8 +36,14 @@ if ! command -v ldid >/dev/null 2>&1; then
   exit 1
 fi
 ldid -SConfig/lara.entitlements "$PWD/build/Payload/lara.app/lara"
-mkdir "$PWD/build/Payload/lara.app/Sounds"
-mv "$PWD/lara/Sounds/*" "$PWD/build/Payload/lara.app/Sounds/"
+# Copy bundled sound files into the .app bundle
+if [ -d "$PWD/lara/Sounds" ]; then
+  mkdir -p "$PWD/build/Payload/lara.app/Sounds"
+  cp -R "$PWD/lara/Sounds/." \
+        "$PWD/build/Payload/lara.app/Sounds/"
+else
+  echo "Warning: Sounds directory not found"
+fi
 (cd "$PWD/build" && /usr/bin/zip -qry lara.ipa Payload)
 
 echo
