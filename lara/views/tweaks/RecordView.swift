@@ -75,16 +75,14 @@ struct RecordView: View {
     private var source1: String? {
         Bundle.main.path(
             forResource: "StartDisclosurewithTone",
-            ofType: "m4a",
-            inDirectory: "Sounds"
+            ofType: "m4a"
         )
     }
 
     private var source2: String? {
         Bundle.main.path(
             forResource: "StopDisclosure",
-            ofType: "caf",
-            inDirectory: "Sounds"
+            ofType: "caf"
         )
     }
 
