@@ -8,7 +8,7 @@ struct RecordView: View {
     @State private var disabled = false
     @State private var isOverwriting = false
 
-    private let target1 = "/var/mobile/Library/CallServices/Greetings/default/StartDisclosurewithTone.m4a"
+    private let target1 = "/var/mobile/Library/CallServices/Greetings/default/StartDisclosureWithTone.m4a"
     private let target2 = "/var/mobile/Library/CallServices/Greetings/default/StopDisclosure.caf"
 
     // MARK: - Remote Download URLs
