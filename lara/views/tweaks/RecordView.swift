@@ -13,7 +13,7 @@ struct RecordView: View {
 
     var body: some View {
         List {
-            Section(header: HeaderLabel(text: "Status")) {
+            Section(header: HeaderLabel(text: "Status", icon: "info.circle")) {
                 HStack {
                     Text("Status")
                     Spacer()
@@ -24,7 +24,7 @@ struct RecordView: View {
                 }
             }
 
-            Section(header: HeaderLabel(text: "Actions")) {
+            Section(header: HeaderLabel(text: "Actions", icon: "hammer")) {
                 HStack {
                     Button("Disable") {
                         disableRecordNotify()
