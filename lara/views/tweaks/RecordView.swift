@@ -25,17 +25,18 @@ struct RecordView: View {
             }
 
             Section(header: HeaderLabel(text: "Actions", icon: "hammer")) {
-                HStack {
+                
                     Button("Disable") {
                         disableRecordNotify()
                     }
                     .disabled(disabled || isOverwriting)
 
+                    
+
                     Button("Enable") {
                         enableRecordNotify()
                     }
                     .disabled(!disabled || isOverwriting)
-                }
             }
         }
         .navigationTitle("Call Record Notification")
